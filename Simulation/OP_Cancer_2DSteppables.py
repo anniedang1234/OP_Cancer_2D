@@ -64,7 +64,7 @@ class InitializeAttributesSteppable(SteppableBasePy):
                 cell.dict["exhaustion"] = 0
                 cell.dict["speed"] = default_cd8t_speed
                 
-                if random.random() <= caf_pdl1_expression:
+                if random.random() <= cd8t_pdcd1_expression:
                     cell.dict["PDCD1?"] = True
                 else:
                     cell.dict["PDCD1?"] = False
@@ -222,7 +222,7 @@ class UpdateCAFsSteppable(SteppableBasePy):
                         cd8t.dict["exhaustion"] += 1
         
         # Check 3
-        if self.field.IFN_Gamma[caf.xCOM, caf.yCOM, caf.zCOM] > 0:
+        if caf.dict["PDL1?"] == False and self.field.IFN_Gamma[caf.xCOM, caf.yCOM, caf.zCOM] > 0:
             caf.dict["PDL1?"] = True
         
     def step(self, mcs):
@@ -235,7 +235,6 @@ class UpdateCAFsSteppable(SteppableBasePy):
             # Check 4
             if self.field.TGF_Beta[caf.xCOM, caf.yCOM, caf.zCOM] > caf_activation_threshold:
                 caf.type = self.ACTIVATED_CAF
-                caf.dict["PDL1?"] = False
                 
             # Action
             self.field.TGF_Beta[caf.xCOM, caf.yCOM, caf.zCOM] += caf_tgf_secretion_rate
@@ -259,6 +258,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
         
     def start(self):
         self.shared_steppable_vars["dead_cd8t_count"] = 0
+        self.shared_steppable_vars["exhausted_cd8t"] = 0
                
     def step(self, mcs):
         
@@ -358,14 +358,30 @@ class PlotsSteppable(SteppableBasePy):
         # Plot total diffusing agent
         self.plot_diffusing_agent = self.add_new_plot_window(title='Total Diffusing Agent over Time',
                                                  x_axis_title='MonteCarlo Step (MCS)',
-                                                 y_axis_title='Cell Count',
+                                                 y_axis_title='Total Diffusing Agent',
                                                  x_scale_type='linear',
                                                  y_scale_type='linear',
                                                  grid=False,
                                                  config_options={'legend':True})
         
-        self.plot_diffusing_agent.add_plot("Total IFN-Gamma", style='Lines', color='darkmagenta', size=5)       
-        self.plot_diffusing_agent.add_plot("Total TGF-Beta", style='Lines', color='darkolivegreen', size=5)
+        self.plot_diffusing_agent.add_plot("Total IFN-Gamma", style='Lines', color='lightsteelblue', size=5)       
+        self.plot_diffusing_agent.add_plot("Total TGF-Beta", style='Lines', color='rosybrown', size=5)
+        
+        # Plot gene expression
+        self.plot_gene_expression = self.add_new_plot_window(title='Proportion of Gene Expression',
+                                                 x_axis_title='MonteCarlo Step (MCS)',
+                                                 y_axis_title='Proportion (%)',
+                                                 x_scale_type='linear',
+                                                 y_scale_type='linear',
+                                                 grid=False,
+                                                 config_options={'legend':True})
+        
+        self.plot_gene_expression.add_plot("Proportion of PDL1 in Tumour",
+            style='Lines', color='lightsteelblue', size=5)       
+        self.plot_gene_expression.add_plot("Proportion of PDL1 in CAF",
+            style='Lines', color='rosybrown', size=5)
+        self.plot_gene_expression.add_plot("Proportion of PDCD1 in CD8T",
+            style='Lines', color='burlywood', size=5)
         
     def step(self,mcs):
   
@@ -388,11 +404,27 @@ class PlotsSteppable(SteppableBasePy):
         self.plot_live_count.add_data_point("Live CD8T Count", mcs, cd8t_count)
         
         # Plot dead cell count
-        self.plot_dead_count.add_data_point("Dead Tumour Count", mcs, self.shared_steppable_vars["dead_tumour_count"])
-        self.plot_dead_count.add_data_point("Dead Total CD8T Count", mcs, self.shared_steppable_vars["dead_cd8t_count"])
+        self.plot_dead_count.add_data_point("Dead Tumour Count",
+            mcs, self.shared_steppable_vars["dead_tumour_count"])
+        self.plot_dead_count.add_data_point("Dead Total CD8T Count",
+            mcs, self.shared_steppable_vars["dead_cd8t_count"])
           
         # Plot total diffusing agent
         self.plot_diffusing_agent.add_data_point("Total IFN-Gamma", mcs, self.shared_steppable_vars["total_ifn_gamma"])
         self.plot_diffusing_agent.add_data_point("Total TGF-Beta", mcs, self.shared_steppable_vars["total_tgf_beta"])
-
         
+        # Plot gene expression
+        tumour_expressing_pdl1 = sum(1 for tumour in self.cell_list_by_type(self.TUMOUR)
+            if tumour.dict["PDL1?"] == True)
+        all_caf_expressing_pdl1 = sum(1 for caf in self.cell_list_by_type(self.CAF) if caf.dict["PDL1?"] == True) + \
+            sum(1 for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF) if a_caf.dict["PDL1?"] == True)
+        cd8t_expressing_pdcd1 = sum(1 for cd8t in self.cell_list_by_type(self.CD8T) 
+            if cd8t.dict["PDCD1?"] == True)
+        
+        self.plot_gene_expression.add_data_point("Proportion of PDL1 in Tumour",
+            mcs, (tumour_expressing_pdl1 / tumour_count))
+        self.plot_gene_expression.add_data_point("Proportion of PDL1 in CAF",
+            mcs, (all_caf_expressing_pdl1 / (caf_count + activated_caf_count)))
+        self.plot_gene_expression.add_data_point("Proportion of PDCD1 in CD8T",
+            mcs, (cd8t_expressing_pdcd1 / cd8t_count))
+            
