@@ -31,18 +31,6 @@ tumour_pdl1_expression = 0.5
 caf_pdl1_expression = 0.5
 cd8t_pdcd1_expression = 0.8
 
-# Plot values
-dead_tumour_count = 0
-dead_cd8t_count = 0
-
-ifn_gamma_total = 0
-tgf_beta_total = 0
-
-tumour_expressing_pdl1 = 0
-all_caf_expressing_pdl1 = 0
-cd8t_expressing_pdcd1 = 0
-exhausted_cd8t = 0
-
 class InitializeAttributesSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
@@ -173,7 +161,14 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
         
+    def start(self):
+        self.shared_steppable_vars["dead_tumour_count"] = 0
+        self.shared_steppable_vars["total_ifn_gamma"] = 0
+        self.shared_steppable_vars["total_tgf_beta"] = 0
+        
     def step(self, mcs):
+        
+        cells_to_delete = []
         
         for i, tumour in enumerate(self.cell_list_by_type(self.TUMOUR)):
             
@@ -192,8 +187,9 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
             
             if cd8t != None:
                 self.field.IFN_Gamma[tumour.xCOM, tumour.yCOM, tumour.zCOM] += ifn_secretion_rate
+                self.shared_steppable_vars["total_ifn_gamma"] += ifn_secretion_rate
                 if not immune_escaped:
-                    self.delete_cell(tumour)
+                    cells_to_delete.append(tumour)
                 else:
                     
                     # Check 2
@@ -201,7 +197,12 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                     if self.field.IFN_Gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > 0:
                         tumour.dict["PDL1?"] = True
                         
-                    self.field.TGF_Beta[tumour.xCOM, tumour.yCOM, tumour.zCOM] += tumour_tgf_secretion_rate                
+                    self.field.TGF_Beta[tumour.xCOM, tumour.yCOM, tumour.zCOM] += tumour_tgf_secretion_rate
+                    self.shared_steppable_vars["total_tgf_beta"] += tumour_tgf_secretion_rate
+    
+        for tumour in cells_to_delete:
+            self.delete_cell(tumour)
+            self.shared_steppable_vars["dead_tumour_count"] += 1
 
 
 class UpdateCAFsSteppable(SteppableBasePy):
@@ -249,11 +250,15 @@ class UpdateCAFsSteppable(SteppableBasePy):
             
             # Action
             self.field.TGF_Beta[a_caf.xCOM, a_caf.yCOM, a_caf.zCOM] += caf_tgf_secretion_rate
+            self.shared_steppable_vars["total_tgf_beta"] += caf_tgf_secretion_rate
     
 
 class UpdateCD8TCellsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self,frequency)
+        
+    def start(self):
+        self.shared_steppable_vars["dead_cd8t_count"] = 0
                
     def step(self, mcs):
         
@@ -279,7 +284,6 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             # Check 3 & 4
             
             neighbours = CAF_tree.query_ball_point((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM), caf_radius)
-            print(len(neighbours))
             
             if len(neighbours) > 0:
                 cd8t.dict["speed"] = max([0, cd8t.dict["speed"] - (len(neighbours) * cd8t_slowdown_rate)])
@@ -290,6 +294,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
                 
         for cd8t in cells_to_delete:
             self.delete_cell(cd8t)
+            self.shared_steppable_vars["dead_cd8t_count"] +=1
             
 
 
@@ -325,7 +330,7 @@ class PlotsSteppable(SteppableBasePy):
     def start(self):        
         
         # Plot live cell count
-        self.plot_live_count = self.add_new_plot_window(title='Cell Count over Time',
+        self.plot_live_count = self.add_new_plot_window(title='Live Cell Count over Time',
                                                  x_axis_title='MonteCarlo Step (MCS)',
                                                  y_axis_title='Cell Count',
                                                  x_scale_type='linear',
@@ -333,32 +338,61 @@ class PlotsSteppable(SteppableBasePy):
                                                  grid=False,
                                                  config_options={'legend':True})
         
-        self.plot_live_count.add_plot("Tumour Count", style='Lines', color='blue', size=5)       
-        self.plot_live_count.add_plot("CAF Count", style='Lines', color='green', size=5)
-        self.plot_live_count.add_plot("Activated CAF Count", style='Lines', color='green', size=5)
-        self.plot_live_count.add_plot("CD8T Count", style='Lines', color='red', size=5)
+        self.plot_live_count.add_plot("Live Tumour Count", style='Lines', color='salmon', size=5)       
+        self.plot_live_count.add_plot("Live CAF Count", style='Lines', color='yellowgreen', size=5)
+        self.plot_live_count.add_plot("Live Activated CAF Count", style='Lines', color='gold', size=5)
+        self.plot_live_count.add_plot("Live CD8T Count", style='Lines', color='cornflowerblue', size=5)
        
-        # Plot dead cell count 
+        # Plot dead cell count
+        self.plot_dead_count = self.add_new_plot_window(title='Dead Cell Count over Time',
+                                                 x_axis_title='MonteCarlo Step (MCS)',
+                                                 y_axis_title='Cell Count',
+                                                 x_scale_type='linear',
+                                                 y_scale_type='linear',
+                                                 grid=False,
+                                                 config_options={'legend':True})
+        
+        self.plot_dead_count.add_plot("Dead Tumour Count", style='Lines', color='salmon', size=5)       
+        self.plot_dead_count.add_plot("Dead Total CD8T Count", style='Lines', color='cornflowerblue', size=5)
+        
+        # Plot total diffusing agent
+        self.plot_diffusing_agent = self.add_new_plot_window(title='Total Diffusing Agent over Time',
+                                                 x_axis_title='MonteCarlo Step (MCS)',
+                                                 y_axis_title='Cell Count',
+                                                 x_scale_type='linear',
+                                                 y_scale_type='linear',
+                                                 grid=False,
+                                                 config_options={'legend':True})
+        
+        self.plot_diffusing_agent.add_plot("Total IFN-Gamma", style='Lines', color='darkmagenta', size=5)       
+        self.plot_diffusing_agent.add_plot("Total TGF-Beta", style='Lines', color='darkolivegreen', size=5)
         
     def step(self,mcs):
   
-        Tumour_count = 0; CAF_count = 0; Activated_CAF_count = 0; CD8T_count = 0;
+        tumour_count = 0; caf_count = 0; activated_caf_count = 0; cd8t_count = 0;
         
+        # Plot live cell count
         for cell in self.cell_list:
                 if cell.type == self. TUMOUR:
-                    Tumour_count += 1
+                    tumour_count += 1
                 elif cell.type == self.CAF:
-                    CAF_count += 1
+                    caf_count += 1
                 elif cell.type == self.ACTIVATED_CAF:
-                    Activated_CAF_count += 1
+                    activated_caf_count += 1
                 elif cell.type == self.CD8T:
-                    CD8T_count += 1
+                    cd8t_count += 1
 
-        self.plot_live_count.add_data_point("Tumour Count", mcs, Tumour_count)
-        self.plot_live_count.add_data_point("CAF Count", mcs, CAF_count)
-        self.plot_live_count.add_data_point("Activated CAF Count", mcs, CAF_count)
-        self.plot_live_count.add_data_point("CD8T Count", mcs, CD8T_count)
+        self.plot_live_count.add_data_point("Live Tumour Count", mcs, tumour_count)
+        self.plot_live_count.add_data_point("Live CAF Count", mcs, caf_count)
+        self.plot_live_count.add_data_point("Live Activated CAF Count", mcs, activated_caf_count)
+        self.plot_live_count.add_data_point("Live CD8T Count", mcs, cd8t_count)
+        
+        # Plot dead cell count
+        self.plot_dead_count.add_data_point("Dead Tumour Count", mcs, self.shared_steppable_vars["dead_tumour_count"])
+        self.plot_dead_count.add_data_point("Dead Total CD8T Count", mcs, self.shared_steppable_vars["dead_cd8t_count"])
           
-
+        # Plot total diffusing agent
+        self.plot_diffusing_agent.add_data_point("Total IFN-Gamma", mcs, self.shared_steppable_vars["total_ifn_gamma"])
+        self.plot_diffusing_agent.add_data_point("Total TGF-Beta", mcs, self.shared_steppable_vars["total_tgf_beta"])
 
         
