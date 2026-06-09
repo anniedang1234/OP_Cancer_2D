@@ -13,8 +13,8 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="150" y="150" z="1"/>
-      <Steps>1000</Steps>
+      <Dimensions x="250" y="250" z="1"/>
+      <Steps>300</Steps>
       <Temperature>3.0</Temperature>
       <NeighborOrder>3</NeighborOrder>
    </Potts>
@@ -176,9 +176,9 @@
    <Steppable Type="DiffusionSolverFE">
       
       <!-- Specification of PDE solvers -->
-      <DiffusionField Name="IFN_Gamma">
+      <DiffusionField Name="IFN_gamma">
          <DiffusionData>
-            <FieldName>IFN_Gamma</FieldName>
+            <FieldName>IFN_gamma</FieldName>
             <GlobalDiffusionConstant>0.1</GlobalDiffusionConstant>
             <GlobalDecayConstant>0.0001</GlobalDecayConstant>
             <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
@@ -206,9 +206,9 @@
       </DiffusionField>
       
       
-      <DiffusionField Name="TGF_Beta">
+      <DiffusionField Name="TGF_beta">
          <DiffusionData>
-            <FieldName>TGF_Beta</FieldName>
+            <FieldName>TGF_beta</FieldName>
             <GlobalDiffusionConstant>0.3</GlobalDiffusionConstant>
             <GlobalDecayConstant>0.0001</GlobalDecayConstant>
             <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
@@ -216,9 +216,6 @@
          <SecretionData>
             <!-- When secretion is defined inside DiffusionSolverFE all secretion constants are scaled automatically to account for the extra calls to the diffusion step when handling large diffusion constants -->
             
-            <!-- Uniform secretion Definition -->
-            <Secretion Type="Tumour">0.1</Secretion>
-            <Secretion Type="CAF">0.1</Secretion>
          </SecretionData>
          <BoundaryConditions>
             <Plane Axis="X">
@@ -236,8 +233,8 @@
       <DiffusionField Name="Collagen">
          <DiffusionData>
             <FieldName>Collagen</FieldName>
-            <GlobalDiffusionConstant>0.1</GlobalDiffusionConstant>
-            <GlobalDecayConstant>0.0001</GlobalDecayConstant>
+            <GlobalDiffusionConstant>0</GlobalDiffusionConstant>
+            <GlobalDecayConstant>0</GlobalDecayConstant>
             <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>
@@ -265,19 +262,20 @@
    
    <Plugin Name="ExternalPotential"/>
    
+   <!--
    <Steppable Type="UniformInitializer">
    
       <Region>
-         <BoxMin x="60" y="60" z="0"/>
-         <BoxMax x="90" y="90" z="1"/>
+         <BoxMin x="260" y="260" z="0"/>
+         <BoxMax x="320" y="320" z="1"/>
          <Gap>6</Gap>
          <Width>3</Width>
          <Types>CAF</Types>
       </Region>
       
       <Region>
-         <BoxMin x="65" y="65" z="0"/>
-         <BoxMax x="85" y="85" z="1"/>
+         <BoxMin x="240" y="240" z="0"/>
+         <BoxMax x="300" y="300" z="1"/>
          <Gap>0</Gap>
          <Width>3</Width>
          <Types>Tumour</Types>
@@ -285,7 +283,7 @@
       
       <Region>
          <BoxMin x="0" y="0" z="0"/>
-         <BoxMax x="150" y="150" z="1"/>
+         <BoxMax x="500" y="500" z="1"/>
          <Gap>20</Gap>
          <Width>3</Width>
          <Types>CD8T</Types>
@@ -293,4 +291,5 @@
       
       
    </Steppable>
+   -->
 </CompuCell3D>

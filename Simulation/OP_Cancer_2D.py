@@ -4,16 +4,16 @@ from cc3d import CompuCellSetup
 
 
 
+from OP_Cancer_2DSteppables import InitializeCellPositionSteppable
+
+CompuCellSetup.register_steppable(steppable=InitializeCellPositionSteppable(frequency=1))        
+
+
+
+
 from OP_Cancer_2DSteppables import InitializeAttributesSteppable
 
 CompuCellSetup.register_steppable(steppable=InitializeAttributesSteppable(frequency=1))        
-
-
-
-
-from OP_Cancer_2DSteppables import ConstraintInitializerSteppable
-
-CompuCellSetup.register_steppable(steppable=ConstraintInitializerSteppable(frequency=1))
 
 
 

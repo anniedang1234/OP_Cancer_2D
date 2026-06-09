@@ -1,6 +1,10 @@
-from cc3d.core.PySteppables import *
-import numpy as np
+# Imports
 
+from cc3d.core.PySteppables import *
+
+import csv
+import math
+import numpy as np
 import random
 from scipy.spatial import KDTree
 
@@ -11,83 +15,135 @@ tumour_vol = 9
 cd8t_vol = 9
 caf_vol = 9
 
-tumour_growth = 0.5
+tumour_growth = 0.1 # Get from Sameena
 caf_growth = 0.05
 
-ifn_secretion_rate = 0.1
+tumour_apoptosis_probability = 0.001
+caf_apoptosis_probability = 0.001
+
+kill_ifn_secretion_rate = 0.1
 tumour_tgf_secretion_rate = 0.1
 collagen_secretion_rate = 0.1
 caf_tgf_secretion_rate = 0.1
+caf_ifn_secretion_rate = 0.1
 
-default_cd8t_speed = 10
+default_cd8t_speed = 100
 
 caf_activation_threshold = 0.5
-exhaustion_threshold = 3
+exhaustion_threshold = 35
 caf_radius = 10
 cd8t_slowdown_rate = 3
 collagen_threshold = 0.5
 
-tumour_pdl1_expression = 0.5
-caf_pdl1_expression = 0.5
+tumour_pdl1_expression = 0.8
+caf_pdl1_expression = 0.8
 cd8t_pdcd1_expression = 0.8
+
+cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\v4_patient28_adata_css.csv"
+
+class InitializeCellPositionSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+    def seed_cell_at(self, cell, x, y, z):
+        
+        radius = int(math.sqrt(cell.targetVolume / 3.14))
+        dims = self.cellField.getDim()
+        
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                nx, ny, nz = x + dx, y + dy, z
+                if 0 <= nx < dims.x and 0 <= ny < dims.y and 0 <= nz < dims.z:
+                    self.cellField[nx, ny, nz] = cell
+            
+        
+    def start(self):
+        
+        with open(cell_position_file, newline='') as f:
+            reader = csv.DictReader(f)
+            
+            for row in reader:
+                
+                # Set position                
+                x = int(float(row["x_aligned"]))
+                y = int(float(row["y_aligned"]))
+                z = 0
+                
+                # Set cell type
+                cell_type_str = row["leiden_r06"]
+                if cell_type_str == "Tumour epithelial" or cell_type_str == "Tumour epithelial (proliferative)":
+                    cell_type = getattr(self, "TUMOUR")
+                elif cell_type_str == "CD8 T cell":
+                    cell_type = getattr(self, "CD8T")
+                elif cell_type_str == "CAF":
+                    cell_type = getattr(self, "CAF")
+                
+                cell = self.newCell(cell_type)
+                
+                if cell.type == self.TUMOUR:
+                    cell.targetVolume = tumour_vol
+                    cell.lambdaVolume = 10
+                elif cell.type == self.CAF or cell.type == self.ACTIVATED_CAF:
+                    cell.targetVolume = caf_vol
+                    cell.lambdaVolume = 10
+                elif cell.type == self.CD8T:
+                    cell.targetVolume = cd8t_vol
+                    cell.lambdaVolume = 15
+                    
+                # Set gene expression
+                if float(row["CD274"]) == 0:
+                    cell.dict["CD274?"] = False
+                else:
+                    cell.dict["CD274?"] = True
+                    
+                # Set other attributes
+                if cell.type == self.CD8T:
+                    cell.dict["exhausted?"] = False
+                    cell.dict["exhaustion_time"] = 0
+                    cell.dict["speed"] = default_cd8t_speed
+                
+                # Spawn cell
+                self.seed_cell_at(cell, x, y, z)
+
 
 class InitializeAttributesSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
         
     def start(self):
-        
+        '''
         for cell in self.cell_list:
             if cell.type == self.TUMOUR:
-                cell.dict["PDL1?"] = False
                 
                 if random.random() <= tumour_pdl1_expression:
-                    cell.dict["PDL1?"] = True
+                    cell.dict["CD274?"] = True
                 else:
-                    cell.dict["PDL1?"] = False
+                    cell.dict["CD274?"] = False
                 
             elif cell.type == self.CAF:
                 
                 if random.random() <= caf_pdl1_expression:
-                    cell.dict["PDL1?"] = True
+                    cell.dict["CD274?"] = True
                 else:
-                    cell.dict["PDL1?"] = False
+                    cell.dict["CD274?"] = False
                     
             elif cell.type == self.ACTIVATED_CAF:
                 
                 if random.random() <= caf_pdl1_expression:
-                    cell.dict["PDL1?"] = True
+                    cell.dict["CD274?"] = True
                 else:
-                    cell.dict["PDL1?"] = False
+                    cell.dict["CD274?"] = False
 
             elif cell.type == self.CD8T:
-                cell.dict["exhaustion"] = 0
+                cell.dict["exhausted?"] = False
+                cell.dict["exhaustion_time"] = 0
                 cell.dict["speed"] = default_cd8t_speed
                 
                 if random.random() <= cd8t_pdcd1_expression:
-                    cell.dict["PDCD1?"] = True
+                    cell.dict["CD274?"] = True
                 else:
-                    cell.dict["PDCD1?"] = False
-
-
-class ConstraintInitializerSteppable(SteppableBasePy):
-    def __init__(self, frequency=1):
-        SteppableBasePy.__init__(self, frequency)
-
-    def start(self):
-
-        for cell in self.cell_list:
-            
-            if cell.type == self.TUMOUR:
-                cell.targetVolume = tumour_vol
-                cell.lambdaVolume = 10
-            elif cell.type == self.CAF or cell.type == self.ACTIVATED_CAF:
-                cell.targetVolume = caf_vol
-                cell.lambdaVolume = 10
-            elif cell.type == self.CD8T:
-                cell.targetVolume = cd8t_vol
-                cell.lambdaVolume = 15
-        
+                    cell.dict["CD274?"] = False
+        '''        
         
 class GrowthSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -147,11 +203,12 @@ class MitosisSteppable(MitosisSteppableBase):
     
         # reinitialise dict attributes based on cell type
         if self.child_cell.type == self.CD8T:  # CD8T
-            self.child_cell.dict["exhaustion"] = 0
+            self.child_cell.dict["exhausted"] = False
+            self.child_cell.dict["exhaustion_time"] = 0
             self.child_cell.dict["cd8t-speed"] = 1
-            self.child_cell.dict["PDCD1?"] = False
+            self.child_cell.dict["CD274?"] = False
         else:  # Tumour, CAF, or activated CAF
-            self.child_cell.dict["PDL1?"] = False
+            self.child_cell.dict["CD274?"] = False
 
         # for more control of what gets copied from parent to child use cloneAttributes function
         # self.clone_attributes(source_cell=self.parent_cell, target_cell=self.child_cell, no_clone_key_dict_list=[attrib1, attrib2]) 
@@ -172,8 +229,12 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
         
         for i, tumour in enumerate(self.cell_list_by_type(self.TUMOUR)):
             
-            # Check 1
+            # Check for apoptosis
+            if random.random() <= tumour_apoptosis_probability:
+                cells_to_delete.append(tumour)
+                continue
             
+            # Check 1
             immune_escaped = False
             cd8t = None
             
@@ -181,23 +242,23 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                 if neighbor:
                     if neighbor.type == self.CD8T: #
                         cd8t = neighbor
-                        if cd8t.dict["PDCD1?"] == True and tumour.dict["PDL1?"] == True:
-                            cd8t.dict["exhaustion"] += 1
+                        if cd8t.dict["CD274?"] == True and tumour.dict["CD274?"] == True:
+                            cd8t.dict["exhausted?"] = True
                             immune_escaped = True      
             
             if cd8t != None:
-                self.field.IFN_Gamma[tumour.xCOM, tumour.yCOM, tumour.zCOM] += ifn_secretion_rate
-                self.shared_steppable_vars["total_ifn_gamma"] += ifn_secretion_rate
+                self.field.IFN_gamma[tumour.xCOM, tumour.yCOM, tumour.zCOM] += kill_ifn_secretion_rate
+                self.shared_steppable_vars["total_ifn_gamma"] += caf_ifn_secretion_rate
                 if not immune_escaped:
                     cells_to_delete.append(tumour)
                 else:
                     
                     # Check 2
                     
-                    if self.field.IFN_Gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > 0:
-                        tumour.dict["PDL1?"] = True
+                    if self.field.IFN_gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > 0:
+                        tumour.dict["CD274?"] = True
                         
-                    self.field.TGF_Beta[tumour.xCOM, tumour.yCOM, tumour.zCOM] += tumour_tgf_secretion_rate
+                    self.field.TGF_beta[tumour.xCOM, tumour.yCOM, tumour.zCOM] += tumour_tgf_secretion_rate
                     self.shared_steppable_vars["total_tgf_beta"] += tumour_tgf_secretion_rate
     
         for tumour in cells_to_delete:
@@ -209,7 +270,15 @@ class UpdateCAFsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
         
-    def all_cafs_checks(self, caf):
+    def start(self):
+        self.shared_steppable_vars["dead_caf_count"] = 0
+        
+    def all_cafs_checks(self, caf, cells_to_delete):
+        
+        # Check for death
+        if random.random() <= caf_apoptosis_probability:
+            cells_to_delete.append(caf)
+            return
         
         # Check 2
         cd8t = None
@@ -218,26 +287,29 @@ class UpdateCAFsSteppable(SteppableBasePy):
             if neighbor:
                 if neighbor.type == self.CD8T:
                     cd8t = neighbor
-                    if cd8t.dict["PDCD1?"] == True and caf.dict["PDL1?"] == True:
-                        cd8t.dict["exhaustion"] += 1
+                    if cd8t.dict["CD274?"] == True and caf.dict["CD274?"] == True:
+                        cd8t.dict["exhausted"] = True
         
         # Check 3
-        if caf.dict["PDL1?"] == False and self.field.IFN_Gamma[caf.xCOM, caf.yCOM, caf.zCOM] > 0:
-            caf.dict["PDL1?"] = True
+        if caf.dict["CD274?"] == False and self.field.IFN_gamma[caf.xCOM, caf.yCOM, caf.zCOM] > 0:
+            caf.dict["CD274?"] = True
         
     def step(self, mcs):
+        
+        cells_to_delete = []
         
         for caf in self.cell_list_by_type(self.CAF):
             
             # Check 2 & 3
-            self.all_cafs_checks(caf)
+            self.all_cafs_checks(caf, cells_to_delete)
                 
             # Check 4
-            if self.field.TGF_Beta[caf.xCOM, caf.yCOM, caf.zCOM] > caf_activation_threshold:
+            if self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM] > caf_activation_threshold:
                 caf.type = self.ACTIVATED_CAF
                 
             # Action
-            self.field.TGF_Beta[caf.xCOM, caf.yCOM, caf.zCOM] += caf_tgf_secretion_rate
+            self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM] += caf_tgf_secretion_rate
+            self.field.IFN_gamma[caf.xCOM, caf.yCOM, caf.zCOM] += caf_ifn_secretion_rate
         
         for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF):
             
@@ -245,11 +317,15 @@ class UpdateCAFsSteppable(SteppableBasePy):
             self.field.Collagen[a_caf.xCOM, a_caf.yCOM, a_caf.zCOM] += collagen_secretion_rate
             
             # Check 2 & 3
-            self.all_cafs_checks(a_caf)
+            self.all_cafs_checks(a_caf, cells_to_delete)
             
             # Action
-            self.field.TGF_Beta[a_caf.xCOM, a_caf.yCOM, a_caf.zCOM] += caf_tgf_secretion_rate
+            self.field.TGF_beta[a_caf.xCOM, a_caf.yCOM, a_caf.zCOM] += caf_tgf_secretion_rate
             self.shared_steppable_vars["total_tgf_beta"] += caf_tgf_secretion_rate
+            
+        for caf in cells_to_delete:
+            self.delete_cell(caf)
+            self.shared_steppable_vars["dead_caf_count"] += 1
     
 
 class UpdateCD8TCellsSteppable(SteppableBasePy):
@@ -277,7 +353,9 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             # Check 1 done in UpdateTumourCellsSteppable and UpdateCAFsSteppable
             
             # Check 2
-            if cd8t.dict["exhaustion"] > exhaustion_threshold:
+            if cd8t.dict["exhausted?"] == True:
+                cd8t.dict["exhaustion_time"] += 1            
+            if cd8t.dict["exhaustion_time"] > exhaustion_threshold:
                 cells_to_delete.append(cd8t)
                 continue
                 
@@ -321,7 +399,8 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             dy = cd8t.yCOM - nearest_tumour.yCOM
             
             cd8t.lambdaVecX = dx * cd8t.dict["speed"]
-            cd8t.lambdaVecY = dy * cd8t.dict["speed"]             
+            cd8t.lambdaVecY = dy * cd8t.dict["speed"]
+             
             
 class PlotsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -338,7 +417,7 @@ class PlotsSteppable(SteppableBasePy):
                                                  grid=False,
                                                  config_options={'legend':True})
         
-        self.plot_live_count.add_plot("Live Tumour Count", style='Lines', color='salmon', size=5)       
+        self.plot_live_count.add_plot("Live Tumour Count", style='Lines', color='coral', size=5)       
         self.plot_live_count.add_plot("Live CAF Count", style='Lines', color='yellowgreen', size=5)
         self.plot_live_count.add_plot("Live Activated CAF Count", style='Lines', color='gold', size=5)
         self.plot_live_count.add_plot("Live CD8T Count", style='Lines', color='cornflowerblue', size=5)
@@ -352,8 +431,9 @@ class PlotsSteppable(SteppableBasePy):
                                                  grid=False,
                                                  config_options={'legend':True})
         
-        self.plot_dead_count.add_plot("Dead Tumour Count", style='Lines', color='salmon', size=5)       
-        self.plot_dead_count.add_plot("Dead Total CD8T Count", style='Lines', color='cornflowerblue', size=5)
+        self.plot_dead_count.add_plot("Dead Tumour Count", style='Lines', color='coral', size=5)       
+        self.plot_dead_count.add_plot("Dead CD8T Count", style='Lines', color='cornflowerblue', size=5)
+        self.plot_dead_count.add_plot("Dead CAF Count", style='Lines', color='yellowgreen', size=5)
         
         # Plot total diffusing agent
         self.plot_diffusing_agent = self.add_new_plot_window(title='Total Diffusing Agent over Time',
@@ -368,19 +448,19 @@ class PlotsSteppable(SteppableBasePy):
         self.plot_diffusing_agent.add_plot("Total TGF-Beta", style='Lines', color='rosybrown', size=5)
         
         # Plot gene expression
-        self.plot_gene_expression = self.add_new_plot_window(title='Proportion of Gene Expression',
+        self.plot_gene_expression = self.add_new_plot_window(title='Cell Count With Gene Expression',
                                                  x_axis_title='MonteCarlo Step (MCS)',
-                                                 y_axis_title='Proportion (%)',
+                                                 y_axis_title='Cell Count',
                                                  x_scale_type='linear',
                                                  y_scale_type='linear',
                                                  grid=False,
                                                  config_options={'legend':True})
         
-        self.plot_gene_expression.add_plot("Proportion of PDL1 in Tumour",
+        self.plot_gene_expression.add_plot("Tumour With CD274",
             style='Lines', color='lightsteelblue', size=5)       
-        self.plot_gene_expression.add_plot("Proportion of PDL1 in CAF",
+        self.plot_gene_expression.add_plot("CAF With CD274",
             style='Lines', color='rosybrown', size=5)
-        self.plot_gene_expression.add_plot("Proportion of PDCD1 in CD8T",
+        self.plot_gene_expression.add_plot("CD8T With CD274",
             style='Lines', color='burlywood', size=5)
         
     def step(self,mcs):
@@ -406,8 +486,10 @@ class PlotsSteppable(SteppableBasePy):
         # Plot dead cell count
         self.plot_dead_count.add_data_point("Dead Tumour Count",
             mcs, self.shared_steppable_vars["dead_tumour_count"])
-        self.plot_dead_count.add_data_point("Dead Total CD8T Count",
+        self.plot_dead_count.add_data_point("Dead CD8T Count",
             mcs, self.shared_steppable_vars["dead_cd8t_count"])
+        self.plot_dead_count.add_data_point("Dead CAF Count",
+            mcs, self.shared_steppable_vars["dead_caf_count"])
           
         # Plot total diffusing agent
         self.plot_diffusing_agent.add_data_point("Total IFN-Gamma", mcs, self.shared_steppable_vars["total_ifn_gamma"])
@@ -415,16 +497,16 @@ class PlotsSteppable(SteppableBasePy):
         
         # Plot gene expression
         tumour_expressing_pdl1 = sum(1 for tumour in self.cell_list_by_type(self.TUMOUR)
-            if tumour.dict["PDL1?"] == True)
-        all_caf_expressing_pdl1 = sum(1 for caf in self.cell_list_by_type(self.CAF) if caf.dict["PDL1?"] == True) + \
-            sum(1 for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF) if a_caf.dict["PDL1?"] == True)
+            if tumour.dict["CD274?"] == True)
+        all_caf_expressing_pdl1 = sum(1 for caf in self.cell_list_by_type(self.CAF) if caf.dict["CD274?"] == True) + \
+            sum(1 for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF) if a_caf.dict["CD274?"] == True)
         cd8t_expressing_pdcd1 = sum(1 for cd8t in self.cell_list_by_type(self.CD8T) 
-            if cd8t.dict["PDCD1?"] == True)
+            if cd8t.dict["CD274?"] == True)
         
-        self.plot_gene_expression.add_data_point("Proportion of PDL1 in Tumour",
-            mcs, (tumour_expressing_pdl1 / tumour_count))
-        self.plot_gene_expression.add_data_point("Proportion of PDL1 in CAF",
-            mcs, (all_caf_expressing_pdl1 / (caf_count + activated_caf_count)))
-        self.plot_gene_expression.add_data_point("Proportion of PDCD1 in CD8T",
-            mcs, (cd8t_expressing_pdcd1 / cd8t_count))
+        self.plot_gene_expression.add_data_point("Tumour With CD274",
+            mcs, tumour_expressing_pdl1)
+        self.plot_gene_expression.add_data_point("CAF With CD274",
+            mcs, all_caf_expressing_pdl1)
+        self.plot_gene_expression.add_data_point("CD8T With CD274",
+            mcs, cd8t_expressing_pdcd1)
             
