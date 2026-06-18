@@ -3,17 +3,15 @@ from cc3d import CompuCellSetup
 
 
 
+from OP_Cancer_2DSteppables import HelperFunctionsSteppable
+CompuCellSetup.register_steppable(steppable=HelperFunctionsSteppable(frequency=1))          
+
+
+
 
 from OP_Cancer_2DSteppables import InitializeCellPositionSteppable
 
-CompuCellSetup.register_steppable(steppable=InitializeCellPositionSteppable(frequency=1))        
-
-
-
-
-from OP_Cancer_2DSteppables import InitializeAttributesSteppable
-
-CompuCellSetup.register_steppable(steppable=InitializeAttributesSteppable(frequency=1))        
+CompuCellSetup.register_steppable(steppable=InitializeCellPositionSteppable(frequency=1))          
 
 
 

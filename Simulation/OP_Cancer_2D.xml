@@ -13,7 +13,7 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="250" y="250" z="1"/>
+      <Dimensions x="150" y="150" z="1"/> <!-- was 1000 x 1750 -->
       <Steps>300</Steps>
       <Temperature>3.0</Temperature>
       <NeighborOrder>3</NeighborOrder>
@@ -44,23 +44,25 @@
       <!-- Module tracking neighboring cells of each cell -->
    </Plugin>
    
+   <Plugin Name="ExternalPotential"/>
+   
    <Plugin Name="Contact">
       <!-- Specification of adhesion energies -->
-      <Energy Type1="Medium" Type2="Medium">15.0</Energy>
-      <Energy Type1="Medium" Type2="Tumour">15.0</Energy>
-      <Energy Type1="Medium" Type2="CAF">15.0</Energy>
-      <Energy Type1="Medium" Type2="Activated_CAF">15.0</Energy>
-      <Energy Type1="Medium" Type2="CD8T">15.0</Energy>
-      <Energy Type1="Tumour" Type2="Tumour">2.0</Energy>
-      <Energy Type1="Tumour" Type2="CAF">8.0</Energy>
-      <Energy Type1="Tumour" Type2="Activated_CAF">8.0</Energy>
-      <Energy Type1="Tumour" Type2="CD8T">2.0</Energy>
-      <Energy Type1="CAF" Type2="CAF">15.0</Energy>
-      <Energy Type1="CAF" Type2="Activated_CAF">15.0</Energy>
-      <Energy Type1="CAF" Type2="CD8T">15.0</Energy>
-      <Energy Type1="CD8T" Type2="CD8T">15.0</Energy>
-      <Energy Type1="CD8T" Type2="Activated_CAF">15.0</Energy>
-      <Energy Type1="Activated_CAF" Type2="Activated_CAF">15.0</Energy>
+      <Energy Type1="Medium" Type2="Medium">10.0</Energy>
+      <Energy Type1="Medium" Type2="Tumour">10.0</Energy>
+      <Energy Type1="Medium" Type2="CAF">10.0</Energy>
+      <Energy Type1="Medium" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="Medium" Type2="CD8T">10.0</Energy>
+      <Energy Type1="Tumour" Type2="Tumour">10.0</Energy>
+      <Energy Type1="Tumour" Type2="CAF">10.0</Energy>
+      <Energy Type1="Tumour" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="Tumour" Type2="CD8T">10.0</Energy>
+      <Energy Type1="CAF" Type2="CAF">10.0</Energy>
+      <Energy Type1="CAF" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="CAF" Type2="CD8T">10.0</Energy>
+      <Energy Type1="CD8T" Type2="CD8T">10.0</Energy>
+      <Energy Type1="CD8T" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="Activated_CAF" Type2="Activated_CAF">10.0</Energy>
       <NeighborOrder>3</NeighborOrder>
    </Plugin>
    
@@ -260,36 +262,4 @@
       
    </Steppable>
    
-   <Plugin Name="ExternalPotential"/>
-   
-   <!--
-   <Steppable Type="UniformInitializer">
-   
-      <Region>
-         <BoxMin x="260" y="260" z="0"/>
-         <BoxMax x="320" y="320" z="1"/>
-         <Gap>6</Gap>
-         <Width>3</Width>
-         <Types>CAF</Types>
-      </Region>
-      
-      <Region>
-         <BoxMin x="240" y="240" z="0"/>
-         <BoxMax x="300" y="300" z="1"/>
-         <Gap>0</Gap>
-         <Width>3</Width>
-         <Types>Tumour</Types>
-      </Region>
-      
-      <Region>
-         <BoxMin x="0" y="0" z="0"/>
-         <BoxMax x="500" y="500" z="1"/>
-         <Gap>20</Gap>
-         <Width>3</Width>
-         <Types>CD8T</Types>
-      </Region>
-      
-      
-   </Steppable>
-   -->
 </CompuCell3D>
