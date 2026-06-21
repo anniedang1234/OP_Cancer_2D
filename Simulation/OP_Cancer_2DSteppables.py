@@ -37,9 +37,16 @@ caf_ifn_secretion_rate = 0.1
 
 default_cd8t_speed = 1000
 
-caf_activation_threshold = 0.5
+caf_activation_threshold_1 = 10000
+caf_activation_threshold_2 = 5000
+caf_activation_threshold_3 = 1000
+caf_activation_prob_1 = 0.01
+caf_activation_prob_2 = 0.01
+caf_activation_prob_3 = 0.01
+caf_activation_prob_4 = 0.01
+
 ifn_pdl1_threshold = 0.05
-exhaustion_threshold = 15
+exhaustion_threshold = 17.5
 collagen_threshold = 0.5
 
 # Seed cells based on csv file
@@ -336,14 +343,25 @@ class UpdateCAFsSteppable(SteppableBasePy):
         
         cells_to_delete = []
         
-        for caf in self.cell_list_by_type(self.CAF):
+        for caf in self.cell_list_by_type(self.CAF): # Inactivated CAF
             
             # Check 2 & 3
             self.all_cafs_checks(caf, cells_to_delete)
                 
-            # Check 4
-            if self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM] > caf_activation_threshold:
-                caf.type = self.ACTIVATED_CAF
+            # Check 4: Calculate probability of CAF activation
+            if self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM] >= caf_activation_threshold_1:
+                if random.random() <= caf_activation_prob_1:
+                    caf.type = self.ACTIVATED_CAF
+            elif self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM] >= caf_activation_threshold_2:
+                if random.random() <= caf_activation_prob_2:
+                    caf.type = self.ACTIVATED_CAF
+            elif self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM] >= caf_activation_threshold_3:
+                if random.random() <= caf_activation_prob_3:
+                    caf.type = self.ACTIVATED_CAF
+            else:
+                if random.random() <= caf_activation_prob_4:
+                    caf.type = self.ACTIVATED_CAF
+                    caf.type = self.ACTIVATED_CAF
                 
             # Action
             self.helper_func.in_radius(caf.xCOM, caf.yCOM, caf.zCOM, self.field.TGF_beta,
