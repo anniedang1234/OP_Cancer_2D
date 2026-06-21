@@ -18,9 +18,9 @@ tumour_vol = int(246.3/scale) # Tumour cell area: 246.3 micrometers squared
 caf_vol = int(4596/scale) # CAF cell area: 4596.2 micrometers squared
 cd8t_vol = int(73.6/scale) # CD8 T cell volume: 73.6 micrometers squared
 
-tumour_lambda_vol = 20
+tumour_lambda_vol = 10
 caf_lambda_vol = 10
-cd8t_lambda_vol = 100
+cd8t_lambda_vol = 50 
 
 tumour_growth = 0.5
 caf_growth = 0.05
@@ -35,6 +35,8 @@ collagen_secretion_rate = 0.1
 caf_tgf_secretion_rate = 0.1
 caf_ifn_secretion_rate = 0.1
 
+tumour_speed = 1000
+caf_speed = 1000
 default_cd8t_speed = 1000
 
 caf_activation_threshold_1 = 10000
@@ -56,7 +58,7 @@ cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\v4_patient28_adata_c
 total_cell_count = 40
 
 
-'''
+#'''
 tumour_proportion = 0.61355
 caf_proportion = 0.33880
 cd8t_proportion = 0.04765
@@ -65,6 +67,7 @@ cd8t_proportion = 0.04765
 tumour_proportion = 0.499999
 caf_proportion = 0.000001
 cd8t_proportion = 0.5
+'''
 
 tumour_cd274_proportion = 0.07119
 caf_cd274_proportion = 0.11358
@@ -424,11 +427,43 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             self.shared_steppable_vars["dead_cd8t_count"] +=1
             
 
+class TumourCellsMoveSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+    
+    def start(self):
+        
+        for tumour in self.cell_list_by_type(self.TUMOUR):
+            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
+            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
+    
+    def step(self, mcs):
+        
+        for tumour in self.cell_list_by_type(self.TUMOUR):
+            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
+            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
+
+            
+class CAFsMoveSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+    
+    def start(self):
+        
+        for caf in (self.cell_list_by_type(self.CAF) + self.cell_list_by_type(self.Activated_CAF)):
+            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
+    
+    def step(self, mcs):
+        
+        for caf in (self.cell_list_by_type(self.CAF) + self.cell_list_by_type(self.Activated_CAF)):
+            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
+        
 
 class CD8TCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
-        self.helper_func = HelperFunctionsSteppable()
     
     def step(self, mcs):
         

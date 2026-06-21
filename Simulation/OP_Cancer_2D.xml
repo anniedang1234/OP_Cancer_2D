@@ -14,7 +14,7 @@
       
       <!-- Basic properties of CPM (GGH) algorithm -->
       <Dimensions x="150" y="150" z="1"/> <!-- was 1000 x 1750 -->
-      <Steps>300</Steps>
+      <Steps>10000</Steps>
       <Temperature>3.0</Temperature>
       <NeighborOrder>3</NeighborOrder>
    </Potts>
