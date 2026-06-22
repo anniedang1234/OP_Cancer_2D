@@ -50,6 +50,17 @@ CompuCellSetup.register_steppable(steppable=UpdateCD8TCellsSteppable(frequency=1
 
 
 
+from OP_Cancer_2DSteppables import TumourCellsMoveSteppable
+
+CompuCellSetup.register_steppable(steppable=TumourCellsMoveSteppable(frequency=1))
+
+
+
+from OP_Cancer_2DSteppables import CAFsMoveSteppable
+
+CompuCellSetup.register_steppable(steppable=CAFsMoveSteppable(frequency=1))
+
+
 
 from OP_Cancer_2DSteppables import CD8TCellsMoveSteppable
 

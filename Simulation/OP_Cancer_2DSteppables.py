@@ -6,6 +6,7 @@ import csv
 import math
 import numpy as np
 import random
+from random import uniform
 from scipy.spatial import KDTree
 
 # SIMULATION VARIABLES
@@ -450,13 +451,21 @@ class CAFsMoveSteppable(SteppableBasePy):
     
     def start(self):
         
-        for caf in (self.cell_list_by_type(self.CAF) + self.cell_list_by_type(self.Activated_CAF)):
+        for caf in self.cell_list_by_type(self.CAF):
+            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
+            
+        for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF):
             caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
             caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
     
     def step(self, mcs):
         
-        for caf in (self.cell_list_by_type(self.CAF) + self.cell_list_by_type(self.Activated_CAF)):
+        for caf in self.cell_list_by_type(self.CAF):
+            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
+            
+        for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF):
             caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
             caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
         
