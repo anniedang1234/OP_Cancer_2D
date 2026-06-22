@@ -19,26 +19,24 @@ tumour_vol = int(246.3/scale) # Tumour cell area: 246.3 micrometers squared
 caf_vol = int(4596/scale) # CAF cell area: 4596.2 micrometers squared
 cd8t_vol = int(73.6/scale) # CD8 T cell volume: 73.6 micrometers squared
 
-tumour_lambda_vol = 10
+tumour_lambda_vol = 50 
 caf_lambda_vol = 10
 cd8t_lambda_vol = 50 
 
-tumour_growth = 0.5
-caf_growth = 0.05
+tumour_growth = 0
+caf_growth = 0
 
-tumour_apoptosis_probability = 0.00001
+tumour_apoptosis_probability = 0
 caf_apoptosis_probability = 0.00001
 cd8t_apoptosis_probability = 0.00001
 
 cd8t_ifn_secretion_rate = 0.1
 tumour_tgf_secretion_rate = 0.1
-collagen_secretion_rate = 0.1
+collagen_secretion_rate = 0
 caf_tgf_secretion_rate = 0.1
 caf_ifn_secretion_rate = 0.1
 
-tumour_speed = 1000
-caf_speed = 1000
-default_cd8t_speed = 1000
+default_cd8t_speed = 500
 
 caf_activation_threshold_1 = 10000
 caf_activation_threshold_2 = 5000
@@ -56,19 +54,16 @@ collagen_threshold = 0.5
 cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\v4_patient28_adata_css.csv"
 
 # Seed cells randomly
-total_cell_count = 40
+total_cell_count = 80
 
-
-#'''
+'''
 tumour_proportion = 0.61355
 caf_proportion = 0.33880
 cd8t_proportion = 0.04765
 '''
-
-tumour_proportion = 0.499999
-caf_proportion = 0.000001
-cd8t_proportion = 0.5
-'''
+tumour_proportion = 0.61355
+caf_proportion = 0.1
+cd8t_proportion = 0.3
 
 tumour_cd274_proportion = 0.07119
 caf_cd274_proportion = 0.11358
@@ -109,6 +104,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         with open(cell_position_file, newline='') as f:
             reader = csv.DictReader(f)
             
+            
             for row in reader:
                 
                 # Set position                
@@ -139,6 +135,9 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                     cell.dict["CD274?"] = False
                 else:
                     cell.dict["CD274?"] = True
+                    
+                   
+                cell.dict["position_history"] = [x, y, z]
                 
                 # Spawn cell
                 self.helper_func.in_radius(x, y, z, self.cellField, cell.targetVolume, cell)
@@ -158,6 +157,8 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             cell.targetVolume = caf_vol
             cell.lambdaVolume = caf_lambda_vol
             
+            cell.dict["position_history"] = [x, y, z]
+            
             if random.random() <= caf_cd274_proportion:
                 cell.dict["CD274?"] = True
             else:
@@ -174,6 +175,8 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             cell = self.newCell(self.TUMOUR)
             cell.targetVolume = tumour_vol
             cell.lambdaVolume = tumour_lambda_vol
+            
+            cell.dict["position_history"] = [x, y, z]
             
             if random.random() <= tumour_cd274_proportion:
                 cell.dict["CD274?"] = True
@@ -193,6 +196,8 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             cell.lambdaVolume = cd8t_lambda_vol
             cell.dict["exhaustion_counter"] = 0
             cell.dict["speed"] = default_cd8t_speed
+            
+            cell.dict["position_history"] = [x, y, z]
             
             if random.random() <= cd8t_cd274_proportion:
                 cell.dict["CD274?"] = True
@@ -285,7 +290,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
             
             for neighbor, common_surface_area in self.get_cell_neighbor_data_list(tumour):
                 if neighbor:
-                    if neighbor.type == self.CD8T: #
+                    if neighbor.type == self.CD8T:
                         cd8t = neighbor
 
                         self.helper_func.in_radius(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM, self.field.IFN_gamma,
@@ -427,49 +432,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             self.delete_cell(cd8t)
             self.shared_steppable_vars["dead_cd8t_count"] +=1
             
-
-class TumourCellsMoveSteppable(SteppableBasePy):
-    def __init__(self, frequency=1):
-        SteppableBasePy.__init__(self, frequency)
-    
-    def start(self):
         
-        for tumour in self.cell_list_by_type(self.TUMOUR):
-            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
-            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
-    
-    def step(self, mcs):
-        
-        for tumour in self.cell_list_by_type(self.TUMOUR):
-            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
-            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
-
-            
-class CAFsMoveSteppable(SteppableBasePy):
-    def __init__(self, frequency=1):
-        SteppableBasePy.__init__(self, frequency)
-    
-    def start(self):
-        
-        for caf in self.cell_list_by_type(self.CAF):
-            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
-            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
-            
-        for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF):
-            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
-            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
-    
-    def step(self, mcs):
-        
-        for caf in self.cell_list_by_type(self.CAF):
-            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
-            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
-            
-        for a_caf in self.cell_list_by_type(self.ACTIVATED_CAF):
-            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
-            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
-        
-
 class CD8TCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
@@ -497,7 +460,61 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             if norm > 0:
                 cd8t.lambdaVecX = dx/norm * cd8t.dict["speed"]
                 cd8t.lambdaVecY = dy/norm * cd8t.dict["speed"]
-             
+     
+    
+class CellSpeedTrackerSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+        self.step_counter = 0
+        
+    def step(self, mcs):
+        
+        self.tumour_speeds = []
+        self.caf_speeds = []
+        self.cd8t_speeds = []
+               
+        if self.step_counter % 10 == 0:
+        
+            for cell in self.cell_list:
+                
+                dx = cell.xCOM - cell.dict["position_history"][0]
+                dy = cell.yCOM - cell.dict["position_history"][1]
+                dz = cell.zCOM - cell.dict["position_history"][2]
+                
+                displacement = math.sqrt(dx**2 + dy**2 + dz**2)
+                                               
+                cell.dict["position_history"][0] = cell.xCOM
+                cell.dict["position_history"][1] = cell.yCOM
+                cell.dict["position_history"][2] = cell.zCOM
+                
+                if cell.type == self.TUMOUR:
+                    if displacement < 5: # Remove artifact outliers
+                        self.tumour_speeds.append(displacement)
+                elif cell.type == self.CAF or cell.type == self.ACTIVATED_CAF:
+                    self.caf_speeds.append(displacement)
+                elif cell.type == self.CD8T:
+                    self.cd8t_speeds.append(displacement)
+                         
+            if len(self.tumour_speeds) != 0:
+                print("Tumour migration:" + str(sum(self.tumour_speeds)/len(self.tumour_speeds)))
+            else:
+                print("Tumour migration: 0")
+                
+            if len(self.caf_speeds) != 0:
+                print("CAF migration:" + str(sum(self.caf_speeds)/len(self.caf_speeds)))
+            else:
+                print("CAF migration: 0")    
+            
+            if len(self.cd8t_speeds) != 0:
+                print("CD8 T migration:" + str(sum(self.cd8t_speeds)/len(self.cd8t_speeds)))
+            else:
+                print("CD8 T migration: 0")
+            
+        
+        self.step_counter += 1
+
+
             
 class PlotsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):

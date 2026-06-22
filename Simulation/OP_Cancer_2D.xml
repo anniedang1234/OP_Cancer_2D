@@ -13,9 +13,9 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="150" y="150" z="1"/> <!-- was 1000 x 1750 -->
+      <Dimensions x="200" y="200" z="1"/> <!-- was 1000 x 1750 -->
       <Steps>10000</Steps>
-      <Temperature>3.0</Temperature>
+      <Temperature>3</Temperature>
       <NeighborOrder>3</NeighborOrder>
    </Potts>
    
@@ -181,19 +181,11 @@
       <DiffusionField Name="IFN_gamma">
          <DiffusionData>
             <FieldName>IFN_gamma</FieldName>
-            <GlobalDiffusionConstant>0.1</GlobalDiffusionConstant>
+            <GlobalDiffusionConstant>70.7</GlobalDiffusionConstant>
             <GlobalDecayConstant>0.0001</GlobalDecayConstant>
-            <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
+            <InitialConcentrationExpression>3.37</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>
-            <!-- When secretion is defined inside DiffusionSolverFE all secretion constants are scaled automatically to account for the extra calls to the diffusion step when handling large diffusion constants -->
-            
-            <!-- Uniform secretion Definition -->
-            <!-- <Secretion Type="Tumour">0.1</Secretion> -->
-            <!-- <Secretion Type="CAF">0.1</Secretion> -->
-            <!-- <Secretion Type="CD8T">0.1</Secretion> -->
-            <!-- <SecretionOnContact SecreteOnContactWith="Tumour,CAF,CD8T" Type="CD8T">0.2</SecretionOnContact> -->
-            <!-- <ConstantConcentration Type="CD8T">0.1</ConstantConcentration> -->
          </SecretionData>
          <BoundaryConditions>
             <Plane Axis="X">
@@ -211,13 +203,11 @@
       <DiffusionField Name="TGF_beta">
          <DiffusionData>
             <FieldName>TGF_beta</FieldName>
-            <GlobalDiffusionConstant>0.3</GlobalDiffusionConstant>
+            <GlobalDiffusionConstant>66.7</GlobalDiffusionConstant>
             <GlobalDecayConstant>0.0001</GlobalDecayConstant>
-            <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
+            <InitialConcentrationExpression>974.1</InitialConcentrationExpression>
          </DiffusionData>
-         <SecretionData>
-            <!-- When secretion is defined inside DiffusionSolverFE all secretion constants are scaled automatically to account for the extra calls to the diffusion step when handling large diffusion constants -->
-            
+         <SecretionData>   
          </SecretionData>
          <BoundaryConditions>
             <Plane Axis="X">
@@ -240,13 +230,6 @@
             <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>
-            
-            <!-- Uniform secretion Definition -->
-            <!-- <Secretion Type="Tumour">0.1</Secretion> -->
-            <!-- <Secretion Type="CAF">0.1</Secretion> -->
-            <!-- <Secretion Type="CD8T">0.1</Secretion> -->
-            <!-- <SecretionOnContact SecreteOnContactWith="Tumour,CAF,CD8T" Type="CD8T">0.2</SecretionOnContact> -->
-            <!-- <ConstantConcentration Type="CD8T">0.1</ConstantConcentration> -->
          </SecretionData>
          <BoundaryConditions>
             <Plane Axis="X">
