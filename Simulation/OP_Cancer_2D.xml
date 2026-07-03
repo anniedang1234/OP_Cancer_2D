@@ -229,7 +229,7 @@
             <FieldName>Collagen</FieldName>
             <GlobalDiffusionConstant>0</GlobalDiffusionConstant>
             <GlobalDecayConstant>0</GlobalDecayConstant>
-            <InitialConcentrationExpression>4000000000</InitialConcentrationExpression>
+            <InitialConcentrationExpression>0.108</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>
          </SecretionData>

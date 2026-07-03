@@ -385,6 +385,7 @@ class UpdateCAFsSteppable(SteppableBasePy):
         
 
 class UpdateCD8TCellsSteppable(SteppableBasePy):
+    
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self,frequency)
         self.helper_func = HelperFunctionsSteppable()
@@ -410,16 +411,14 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
                 
             # Action
             
-            collagen = self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM]
+            collagen = int(self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM])
             
             cd8t.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
             
-            '''            
-            if self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM] > collagen_threshold:
-                cd8t.dict["force"] = 0
-            else:
-                cd8t.dict["force"] = default_cd8t_speed
-            '''
+                        
+            collagen = self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM]
+            cd8t.dict["force"] = -2585 * collagen + 780
+            
             
         for cd8t in cells_to_delete:
             self.delete_cell(cd8t)
@@ -515,10 +514,12 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                 elif cell.type == self.CAF or cell.type == self.MYCAF:
                     self.caf_speeds.append(displacement)
                 elif cell.type == self.CD8T:
+                    
                     with open(self.file_path, "a", newline="") as f:
                             writer = csv.writer(f)
                             writer.writerow([mcs, cell.dict["force"], (displacement/10)])
                     cd8t_speeds.append(displacement)
+                    
                                     
             # Plot
                 
@@ -528,7 +529,7 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                 self.plot_cd8t_speed.add_data_point("CD8 T Speed", mcs, 0)
         
         self.step_counter += 1
-
+    
 
             
 class PlotsSteppable(SteppableBasePy):
