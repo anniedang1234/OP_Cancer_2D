@@ -13,7 +13,7 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="200" y="200" z="1"/> <!-- was 1000 x 1750 -->
+      <Dimensions x="100" y="100" z="1"/> <!-- was 1000 x 1750 -->
       <Steps>10000</Steps>
       <Temperature>3</Temperature>
       <NeighborOrder>3</NeighborOrder>
@@ -26,7 +26,7 @@
       <CellType TypeId="1" TypeName="Tumour"/>
       
       <CellType TypeId="2" TypeName="CAF"/>
-      <CellType TypeId="3" TypeName="Activated_CAF"/>
+      <CellType TypeId="3" TypeName="myCAF"/>
       
       <CellType TypeId="4" TypeName="CD8T"/>
 
@@ -38,6 +38,8 @@
       
       <!-- Module tracking center of mass of each cell -->
    </Plugin>
+   
+   
    
    <Plugin Name="NeighborTracker">
       
@@ -51,18 +53,18 @@
       <Energy Type1="Medium" Type2="Medium">10.0</Energy>
       <Energy Type1="Medium" Type2="Tumour">10.0</Energy>
       <Energy Type1="Medium" Type2="CAF">10.0</Energy>
-      <Energy Type1="Medium" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="Medium" Type2="myCAF">10.0</Energy>
       <Energy Type1="Medium" Type2="CD8T">10.0</Energy>
       <Energy Type1="Tumour" Type2="Tumour">10.0</Energy>
       <Energy Type1="Tumour" Type2="CAF">10.0</Energy>
-      <Energy Type1="Tumour" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="Tumour" Type2="myCAF">10.0</Energy>
       <Energy Type1="Tumour" Type2="CD8T">10.0</Energy>
       <Energy Type1="CAF" Type2="CAF">10.0</Energy>
-      <Energy Type1="CAF" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="CAF" Type2="myCAF">10.0</Energy>
       <Energy Type1="CAF" Type2="CD8T">10.0</Energy>
       <Energy Type1="CD8T" Type2="CD8T">10.0</Energy>
-      <Energy Type1="CD8T" Type2="Activated_CAF">10.0</Energy>
-      <Energy Type1="Activated_CAF" Type2="Activated_CAF">10.0</Energy>
+      <Energy Type1="CD8T" Type2="myCAF">10.0</Energy>
+      <Energy Type1="myCAF" Type2="myCAF">10.0</Energy>
       <NeighborOrder>3</NeighborOrder>
    </Plugin>
    
@@ -92,7 +94,7 @@
          <MaxNumberOfJunctions NeighborOrder="1">1</MaxNumberOfJunctions>
       </Parameters>
       
-      <Parameters Type1="Tumour" Type2="Activated_CAF">
+      <Parameters Type1="Tumour" Type2="myCAF">
          <Lambda>10</Lambda>
          <ActivationEnergy>-50</ActivationEnergy>
          <TargetDistance>7</TargetDistance>
@@ -116,7 +118,7 @@
          <MaxNumberOfJunctions NeighborOrder="1">1</MaxNumberOfJunctions>
       </Parameters>
       
-      <Parameters Type1="CAF" Type2="Activated_CAF">
+      <Parameters Type1="CAF" Type2="myCAF">
          <Lambda>10</Lambda>
          <ActivationEnergy>-50</ActivationEnergy>
          <TargetDistance>7</TargetDistance>
@@ -132,7 +134,7 @@
          <MaxNumberOfJunctions NeighborOrder="1">1</MaxNumberOfJunctions>
       </Parameters>
 
-      <Parameters Type1="Activated_CAF" Type2="Activated_CAF">
+      <Parameters Type1="myCAF" Type2="myCAF">
          <Lambda>10</Lambda>
          <ActivationEnergy>-50</ActivationEnergy>
          <TargetDistance>7</TargetDistance>
@@ -140,7 +142,7 @@
          <MaxNumberOfJunctions NeighborOrder="1">1</MaxNumberOfJunctions>
       </Parameters>
       
-      <Parameters Type1="Activated_CAF" Type2="CD8T">
+      <Parameters Type1="myCAF" Type2="CD8T">
          <Lambda>10</Lambda>
          <ActivationEnergy>-50</ActivationEnergy>
          <TargetDistance>7</TargetDistance>
@@ -171,7 +173,7 @@
       <!-- <DoNotPrecheckConnectivity/> -->
       <Penalty Type="Tumour">1000000</Penalty>
       <Penalty Type="CAF">1000000</Penalty>
-      <Penalty Type="Activated_CAF">1000000</Penalty>
+      <Penalty Type="myCAF">1000000</Penalty>
       <Penalty Type="CD8T">1000000</Penalty>
    </Plugin>
    
@@ -182,8 +184,8 @@
          <DiffusionData>
             <FieldName>IFN_gamma</FieldName>
             <GlobalDiffusionConstant>70.7</GlobalDiffusionConstant>
-            <GlobalDecayConstant>0.0001</GlobalDecayConstant>
-            <InitialConcentrationExpression>3.37</InitialConcentrationExpression>
+            <GlobalDecayConstant>0.00026</GlobalDecayConstant>
+            <InitialConcentrationExpression>0.0000000000910</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>
          </SecretionData>
@@ -203,9 +205,9 @@
       <DiffusionField Name="TGF_beta">
          <DiffusionData>
             <FieldName>TGF_beta</FieldName>
-            <GlobalDiffusionConstant>66.7</GlobalDiffusionConstant>
-            <GlobalDecayConstant>0.0001</GlobalDecayConstant>
-            <InitialConcentrationExpression>974.1</InitialConcentrationExpression>
+            <GlobalDiffusionConstant>67</GlobalDiffusionConstant>
+            <GlobalDecayConstant>0.0000481</GlobalDecayConstant>
+            <InitialConcentrationExpression>0.00000002630</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>   
          </SecretionData>
@@ -227,7 +229,7 @@
             <FieldName>Collagen</FieldName>
             <GlobalDiffusionConstant>0</GlobalDiffusionConstant>
             <GlobalDecayConstant>0</GlobalDecayConstant>
-            <InitialConcentrationExpression>0.0</InitialConcentrationExpression>
+            <InitialConcentrationExpression>4000000000</InitialConcentrationExpression>
          </DiffusionData>
          <SecretionData>
          </SecretionData>
