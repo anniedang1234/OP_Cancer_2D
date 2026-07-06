@@ -20,28 +20,27 @@ tumour_lambda_vol = 50
 caf_lambda_vol = 10
 cd8t_lambda_vol = 50 
 
-tumour_growth = 1.005 #1.00000083
+tumour_growth = 1.00000083
 caf_growth = 1.00001619
 
 tumour_apoptosis_probability = 0.000002533
 caf_apoptosis_probability = 0.0
-cd8t_apoptosis_probability = 0.000011
+cd8t_apoptosis_probability = 0.005 #0.000011
 
 cd8t_ifn_secretion_rate = 0 # still working on it
 tumour_tgf_secretion_rate = 0.0000000001
 collagen_secretion_rate = 2
 caf_tgf_secretion_rate = 0.00000010
 
-
-
-ifn_pdl1_threshold = 0.00000027
-exhaustion_threshold = 100000000000 #17
+tumour_ifn_pdl1_threshold = 0.00000027
+caf_ifn_pdl1_threshold = 0 # still working on it
+exhaustion_threshold = 17
 
 # Seed cells based on csv file
 cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\patient28_truncated_normalized_filtered.csv"
 
 # Seed cells randomly
-total_cell_count = 30
+total_cell_count = 40
 
 tumour_proportion = 0.92307
 caf_proportion = 0
@@ -56,6 +55,10 @@ tumour_cd274_proportion = 0.07119
 caf_cd274_proportion = 0.11358
 cd8t_cd274_proportion = 0.08830
 '''
+
+###################################################
+## CLASSES FOR SIMULATING BIOPHYSICAL MECHANISMS ##
+###################################################
 
 class HelperFunctionsSteppable(SteppableBasePy):
     def in_radius(self, x, y, z, field_type, volume, field):
@@ -270,6 +273,13 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
         self.shared_steppable_vars["total_ifn_gamma"] = 0
         self.shared_steppable_vars["total_tgf_beta"] = 0
         
+        # Track CD8 T kills        
+        self.shared_steppable_vars["cd8t_kill_attempts"] = {}
+        total_mcs = self.simulator.getNumSteps()
+        for cd8t in self.cell_list_by_type(self.CD8T):
+            self.shared_steppable_vars["cd8t_kill_attempts"][cd8t.id] = [0, total_mcs]
+            
+        
     def step(self, mcs):
         
         cells_to_delete = []
@@ -293,6 +303,9 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                             tumour.targetVolume, cd8t_ifn_secretion_rate)
                         self.shared_steppable_vars["total_ifn_gamma"] += cd8t_ifn_secretion_rate
                         
+                        # Track CD8 T kills
+                        self.shared_steppable_vars["cd8t_kill_attempts"][cd8t.id][0] += 1
+                        
                         # If both are not expressing CD274 and CD8T cell is not at exhaustion threshold, CD8 T cell successfully kills tumour cell:
                         if (cd8t.dict["CD274?"] == False or tumour.dict["CD274?"] == False) and cd8t.dict["exhaustion_counter"] < exhaustion_threshold:
                             cd8t.dict["exhaustion_counter"] += 1
@@ -303,7 +316,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                             cd8t.dict["exhaustion_counter"] = exhaustion_threshold
                     
             # Check 2    
-            if self.field.IFN_gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > ifn_pdl1_threshold:
+            if self.field.IFN_gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > tumour_ifn_pdl1_threshold:
                 tumour.dict["CD274?"] = True
             
             self.helper_func.in_radius(tumour.xCOM, tumour.yCOM, tumour.zCOM, self.field.TGF_beta,
@@ -341,7 +354,7 @@ class UpdateCAFsSteppable(SteppableBasePy):
                         cd8t.dict["exhaustion_threshold"] = exhaustion_threshold
         
         # Check 3
-        if caf.dict["CD274?"] == False and self.field.IFN_gamma[caf.xCOM, caf.yCOM, caf.zCOM] > 0:
+        if caf.dict["CD274?"] == False and self.field.IFN_gamma[caf.xCOM, caf.yCOM, caf.zCOM] > caf_ifn_pdl1_threshold:
             caf.dict["CD274?"] = True
         
     def step(self, mcs):
@@ -421,8 +434,13 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             
             
         for cd8t in cells_to_delete:
-            self.delete_cell(cd8t)
             self.shared_steppable_vars["dead_cd8t_count"] +=1
+            
+            # Track CD8 T kills
+            self.shared_steppable_vars["cd8t_kill_attempts"][cd8t.id][1] = mcs
+            
+            self.delete_cell(cd8t)
+            
             
         
 class CD8TCellsMoveSteppable(SteppableBasePy):
@@ -452,7 +470,11 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             if norm > 0:
                 cd8t.lambdaVecX = dx/norm * cd8t.dict["force"]
                 cd8t.lambdaVecY = dy/norm * cd8t.dict["force"]
-     
+
+
+########################################     
+## CLASSES FOR CALIBRATING PARAMETERS ##
+########################################
     
 class CellSpeedTrackerSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -463,7 +485,7 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
         self.caf_speeds = []
         
         self.file_path = None
-        
+    '''    
     def start(self):
         
         # Set up CSV file
@@ -529,8 +551,38 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                 self.plot_cd8t_speed.add_data_point("CD8 T Speed", mcs, 0)
         
         self.step_counter += 1
+    '''
     
-
+class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+        self.file_path = None
+        
+    def start(self):
+        output_dir = self.output_dir
+        self.file_path = os.path.join(output_dir, "cd8t_kill_attempts.csv")
+        
+        with open(self.file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Cell_ID", "Kill_Attempts", "End_Time (MCS)", "Kill_Attempts_/_MCS"])
+        
+    def finish(self):
+        
+        with open(self.file_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            for cell_id, info in self.shared_steppable_vars["cd8t_kill_attempts"].items():
+                
+                if info[1] == 0:
+                    writer.writerow([cell_id, info[0], info[1], 0])
+                else:
+                    writer.writerow([cell_id, info[0], info[1], info[0]/info[1]])
+        f.close()
+        
+    
+#################################
+## CLASSES FOR OUTPUTTING DATA ##
+#################################
             
 class PlotsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
