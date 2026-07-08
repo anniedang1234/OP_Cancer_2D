@@ -46,6 +46,9 @@ CompuCellSetup.register_steppable(steppable=CD8TKillAttemptsTrackerSteppable(fre
 ## CLASSES FOR OUTPUTTING DATA ##
 #################################
 
+from OP_Cancer_2DSteppables import OutputCSVSteppable
+CompuCellSetup.register_steppable(steppable=OutputCSVSteppable(frequency=1))
+
 from OP_Cancer_2DSteppables import PlotsSteppable
 CompuCellSetup.register_steppable(steppable=PlotsSteppable(frequency=1))
 

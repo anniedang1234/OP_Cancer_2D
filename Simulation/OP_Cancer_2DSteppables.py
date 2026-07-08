@@ -25,7 +25,7 @@ caf_growth = 1.00001619
 
 tumour_apoptosis_probability = 0.000002533
 caf_apoptosis_probability = 0.0
-cd8t_apoptosis_probability = 0.005 #0.000011
+cd8t_apoptosis_probability = 0.000011
 
 cd8t_ifn_secretion_rate = 0 # still working on it
 tumour_tgf_secretion_rate = 0.0000000001
@@ -33,11 +33,12 @@ collagen_secretion_rate = 2
 caf_tgf_secretion_rate = 0.00000010
 
 tumour_ifn_pdl1_threshold = 0.00000027
-caf_ifn_pdl1_threshold = 0 # still working on it
+caf_ifn_pdl1_threshold = 0.0000000135
 exhaustion_threshold = 17
 
 # Seed cells based on csv file
-cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\patient28_truncated_normalized_filtered.csv"
+#cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv"
+cell_position_file = "C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv"
 
 # Seed cells randomly
 total_cell_count = 40
@@ -46,56 +47,77 @@ tumour_proportion = 0.92307
 caf_proportion = 0
 cd8t_proportion = 0.0769
 
-tumour_cd274_proportion = 0
-caf_cd274_proportion = 0
-cd8t_cd274_proportion = 0
-
-'''
 tumour_cd274_proportion = 0.07119
 caf_cd274_proportion = 0.11358
 cd8t_cd274_proportion = 0.08830
-'''
+
 
 ###################################################
 ## CLASSES FOR SIMULATING BIOPHYSICAL MECHANISMS ##
 ###################################################
 
 class HelperFunctionsSteppable(SteppableBasePy):
-    def in_radius(self, x, y, z, field_type, volume, field):
-        dims = field_type.getDim()
+    def update_lattice_sites(self, x, y, z, field_type, volume, value):
+        '''
+        If [field_type] is the cell field and [value] is a cell:
+            Changes [volume] lattice sites of [field_type] to the cell type of [value]
         
+        Otherwise:
+            Changes [volume] lattice sites of [field_type] by a total of [value] around [x,y,z]
+        
+        Args:
+            x, y, z: the central coordinates around which the lattice sites will be modified
+            field_type: the field (cell field, TGF-beta, IFN-gamma, or collagen) whose lattice sites will be modified
+            volume: the number of lattice sites that will be modified 
+            value: the modification to the lattice site
+        
+        '''
+        
+        # Find the coordinates of the [volume] lattice sites in a circle around x,y,z  
+        dims = field_type.getDim()
         radius = math.ceil(math.sqrt(volume / 3.14159))
         lattice_sites = []
-        
-        # Ensure all cells release the same amount of a given field regardless of size
-        
+               
         for dx in range(-radius, radius + 1):
             for dy in range(-radius, radius + 1):
                 if dx**2 + dy**2 <= radius**2:
                     nx, ny, nz = x + dx, y + dy, z
                     if 0 <= nx < dims.x and 0 <= ny < dims.y and 0 <= nz < dims.z:
                         lattice_sites.append((nx, ny, nz))
-                        
+        
+        # Modify the values of the lattice sites
         for nx, ny, nz in lattice_sites:
-            if hasattr(field, 'targetVolume'): # Check if "field" is a cell
-                field_type[nx, ny, nz] = field
+            # Check if "value" is a cell
+            # If so, set the cell field to that cell type
+            if hasattr(value, 'targetVolume'):
+                field_type[nx, ny, nz] = value
+            # Else, increment the value of the field
             else:
-                field_type[nx, ny, nz] += (field / len(lattice_sites))
+                # Ensure all cells release the same amount of a given field regardless of size
+                field_type[nx, ny, nz] += (value / len(lattice_sites))
 
 
 class InitializeCellPositionSteppable(SteppableBasePy):
+    
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
+        
+        # Create helper object
         self.helper_func = HelperFunctionsSteppable()
                 
     def start(self):
+        
+        '''
+        Initializes cell type, position, and CD274 expression based on spatial transcriptomics data.
+        Initializes cell size based on parameters from literature.
+        '''
         
         dims = self.cellField.getDim()
         
         self.shared_steppable_vars["default_cd8t_speed"] = 500
         
         # Seed cells based on csv file
-        '''
+        #'''
         with open(cell_position_file, newline='') as f:
             reader = csv.DictReader(f)
             
@@ -110,8 +132,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                 if x >= dims.x or y >= dims.y or z >= dims.z:
                     continue
                 
-                # Set attributes by cell type
-                
+                # Set size by cell type
                 cell_type_str = row["leiden_r06"]
                 if cell_type_str == "CAF":
                     cell = self.newCell(self.CAF)
@@ -126,7 +147,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                     cell.targetVolume = cd8t_vol
                     cell.lambdaVolume = cd8t_lambda_vol
                     cell.dict["exhaustion_counter"] = 0
-                    cell.dict["force"] = default_cd8t_speed
+                    cell.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
                                     
                 # Set gene expression
                 if float(row["CD274"]) == 0:
@@ -138,7 +159,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                 cell.dict["position_history"] = [x, y, z]
                 
                 # Spawn cell
-                self.helper_func.in_radius(x, y, z, self.cellField, cell.targetVolume, cell)
+                self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
                 
         '''
         
@@ -163,7 +184,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             else:
                 cell.dict["CD274?"] = False
             
-            self.helper_func.in_radius(x, y, z, self.cellField, cell.targetVolume, cell)
+            self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
         
         # Tumour cells
         for i in range(0, int(total_cell_count * tumour_proportion)):
@@ -182,7 +203,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             else:
                 cell.dict["CD274?"] = False
             
-            self.helper_func.in_radius(x, y, z, self.cellField, cell.targetVolume, cell)
+            self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
             
         # CD8T cells
         for i in range(0, int(total_cell_count * cd8t_proportion)):
@@ -203,7 +224,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             else:
                 cell.dict["CD274?"] = False
             
-            self.helper_func.in_radius(x, y, z, self.cellField, cell.targetVolume, cell)
+            self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
             
         #'''
         
@@ -213,7 +234,10 @@ class GrowthSteppable(SteppableBasePy):
         SteppableBasePy.__init__(self, frequency)
 
     def step(self, mcs):
-    
+        '''
+        Increment cell size based on growth rate
+        '''
+        
         for cell in self.cell_list:
             if cell.type == self.TUMOUR: # Tumour cells
                 cell.targetVolume *= tumour_growth
@@ -299,7 +323,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                     if neighbor.type == self.CD8T:
                         cd8t = neighbor
 
-                        self.helper_func.in_radius(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM, self.field.IFN_gamma,
+                        self.helper_func.update_lattice_sites(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM, self.field.IFN_gamma,
                             tumour.targetVolume, cd8t_ifn_secretion_rate)
                         self.shared_steppable_vars["total_ifn_gamma"] += cd8t_ifn_secretion_rate
                         
@@ -319,7 +343,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
             if self.field.IFN_gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > tumour_ifn_pdl1_threshold:
                 tumour.dict["CD274?"] = True
             
-            self.helper_func.in_radius(tumour.xCOM, tumour.yCOM, tumour.zCOM, self.field.TGF_beta,
+            self.helper_func.update_lattice_sites(tumour.xCOM, tumour.yCOM, tumour.zCOM, self.field.TGF_beta,
                 tumour.targetVolume, tumour_tgf_secretion_rate)
             self.shared_steppable_vars["total_tgf_beta"] += tumour_tgf_secretion_rate
     
@@ -375,20 +399,20 @@ class UpdateCAFsSteppable(SteppableBasePy):
                 caf.type = self.MYCAF
                 
             # Action
-            self.helper_func.in_radius(caf.xCOM, caf.yCOM, caf.zCOM, self.field.TGF_beta,
+            self.helper_func.update_lattice_sites(caf.xCOM, caf.yCOM, caf.zCOM, self.field.TGF_beta,
                 caf.targetVolume, caf_tgf_secretion_rate)
         
         for mycaf in self.cell_list_by_type(self.MYCAF):
             
             # "Check" 1
-            self.helper_func.in_radius(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.Collagen,
+            self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.Collagen,
                 mycaf.targetVolume, collagen_secretion_rate)
             
             # Check 2 & 3
             self.all_cafs_checks(mycaf, cells_to_delete)
             
             # Action
-            self.helper_func.in_radius(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.TGF_beta,
+            self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.TGF_beta,
                 mycaf.targetVolume, caf_tgf_secretion_rate)
             self.shared_steppable_vars["total_tgf_beta"] += caf_tgf_secretion_rate
             
@@ -512,9 +536,8 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
         
         cd8t_speeds = []
         
-        if self.step_counter != 0 and self.step_counter % 150 == 0 and self.shared_steppable_vars["default_cd8t_speed"] > 0:
-            self.shared_steppable_vars["default_cd8t_speed"] -= 25
-            print(self.shared_steppable_vars["default_cd8t_speed"])
+        self.shared_steppable_vars["default_cd8t_speed"] += 100
+        print(self.shared_steppable_vars["default_cd8t_speed"])
         
         if self.step_counter != 0 and self.step_counter % 10 == 0:
         
@@ -551,7 +574,7 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                 self.plot_cd8t_speed.add_data_point("CD8 T Speed", mcs, 0)
         
         self.step_counter += 1
-    '''
+    #'''
     
 class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -583,6 +606,36 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
 #################################
 ## CLASSES FOR OUTPUTTING DATA ##
 #################################
+
+class OutputCSVSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        self.file_path = None
+        
+    def start(self): 
+        
+        output_dir = self.output_dir
+        self.cell_count_file_path = os.path.join(output_dir, "cell_count.csv")
+        
+        with open(self.cell_count_file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["MCS", "Live Tumour", "Live CAF", "Live CD8 T", "Dead Tumour", "Dead CAF", "Dead CD8 T"])
+                  
+    def step(self, mcs):
+        
+        # Live cell count
+        tumour_count = sum(1 for tumour in self.cell_list_by_type(self.TUMOUR))
+        caf_count = sum(1 for caf in self.cell_list_by_type(self.CAF)) + sum(1 for mycaf in self.cell_list_by_type(self.MYCAF))
+        cd8t_count = sum(1 for cd8t in self.cell_list_by_type(self.CD8T))
+        
+        with open(self.cell_count_file_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([mcs, tumour_count, caf_count, cd8t_count,
+                self.shared_steppable_vars["dead_tumour_count"], self.shared_steppable_vars["dead_caf_count"],
+                self.shared_steppable_vars["dead_cd8t_count"]])
+        f.close()
+        
+        
             
 class PlotsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):

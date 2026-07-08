@@ -3,7 +3,7 @@
    <Metadata>
       
       <!-- Basic properties simulation -->
-      <NumberOfProcessors>1</NumberOfProcessors>
+      <NumberOfProcessors>4</NumberOfProcessors>
       <DebugOutputFrequency>10</DebugOutputFrequency>
       <!-- <NonParallelModule Name="Potts"/> -->
       <MCSConversionFactor DisplayName="No conversion" Units="-">1.0</MCSConversionFactor>
@@ -13,7 +13,7 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="100" y="100" z="1"/> <!-- was 1000 x 1750 -->
+      <Dimensions x="100" y="100" z="1"/>
       <Steps>200</Steps>
       <Temperature>3</Temperature>
       <NeighborOrder>3</NeighborOrder>
