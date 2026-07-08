@@ -12,9 +12,9 @@ from scipy.spatial import KDTree
 
 # GLOBAL VARIABLES
 
-tumour_vol = 27
-caf_vol = 551
-cd8t_vol = 8
+tumour_vol = 15 #27
+caf_vol = 309 #551
+cd8t_vol = 5 #8
 
 tumour_lambda_vol = 50 
 caf_lambda_vol = 10
@@ -114,10 +114,10 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         
         dims = self.cellField.getDim()
         
-        self.shared_steppable_vars["default_cd8t_speed"] = 500
+        self.shared_steppable_vars["default_cd8t_speed"] = 1000
         
         # Seed cells based on csv file
-        #'''
+        '''
         with open(cell_position_file, newline='') as f:
             reader = csv.DictReader(f)
             
@@ -509,7 +509,7 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
         self.caf_speeds = []
         
         self.file_path = None
-    '''    
+    #'''    
     def start(self):
         
         # Set up CSV file
@@ -536,8 +536,8 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
         
         cd8t_speeds = []
         
-        self.shared_steppable_vars["default_cd8t_speed"] += 100
-        print(self.shared_steppable_vars["default_cd8t_speed"])
+        #self.shared_steppable_vars["default_cd8t_speed"] += 100
+        #print(self.shared_steppable_vars["default_cd8t_speed"])
         
         if self.step_counter != 0 and self.step_counter % 10 == 0:
         
