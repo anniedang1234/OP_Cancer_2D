@@ -37,8 +37,7 @@ caf_ifn_pdl1_threshold = 0.0000000135
 exhaustion_threshold = 17
 
 # Seed cells based on csv file
-#cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv"
-cell_position_file = "C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv"
+cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv"
 
 # Seed cells randomly
 total_cell_count = 40
@@ -235,7 +234,7 @@ class GrowthSteppable(SteppableBasePy):
 
     def step(self, mcs):
         '''
-        Increment cell size based on growth rate
+        Increment cell size based on growth rate.
         '''
         
         for cell in self.cell_list:
@@ -250,6 +249,9 @@ class MitosisSteppable(MitosisSteppableBase):
         MitosisSteppableBase.__init__(self, frequency)
 
     def step(self, mcs):
+        '''
+        Perform mitosis when cell volume is equal to or greater than 2 times its default size.
+        '''
 
         cells_to_divide=[]
         for cell in self.cell_list:
@@ -261,21 +263,24 @@ class MitosisSteppable(MitosisSteppableBase):
                     cells_to_divide.append(cell)
 
         for cell in cells_to_divide:
-
             self.divide_cell_random_orientation(cell)
 
 
     def update_attributes(self):
+        '''
+        Initialize attributes of child cells.
+        '''
         
         self.parent_cell.targetVolume /= 2.0
         self.clone_parent_2_child()
         
+        # Initialize cell type
         if self.parent_cell.type == self.TUMOUR or self.parent_cell.type == self.CAF:
             self.child_cell.type = self.parent_cell.type
         elif self.parent_cell.type == self.MYCAF:
             self.child_cell.type = self.CAF
     
-        # reinitialise dict attributes based on cell type
+        # Initialize attributes based on cell type
         if self.child_cell.type == self.CD8T:  # CD8T
             self.child_cell.dict["exhaustion_counter"] = 0
             self.child_cell.dict["cd8t-speed"] = self.shared_steppable_vars["default_cd8t_speed"]
@@ -283,9 +288,6 @@ class MitosisSteppable(MitosisSteppableBase):
         else:  # Tumour, CAF, or myCAF
             self.child_cell.dict["CD274?"] = False
 
-        # for more control of what gets copied from parent to child use cloneAttributes function
-        # self.clone_attributes(source_cell=self.parent_cell, target_cell=self.child_cell, no_clone_key_dict_list=[attrib1, attrib2]) 
-        
 
 class UpdateTumourCellsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -293,6 +295,9 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
         self.helper_func = HelperFunctionsSteppable()
         
     def start(self):
+        
+        # Track model outputs
+        
         self.shared_steppable_vars["dead_tumour_count"] = 0
         self.shared_steppable_vars["total_ifn_gamma"] = 0
         self.shared_steppable_vars["total_tgf_beta"] = 0
@@ -305,24 +310,28 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
             
         
     def step(self, mcs):
+        '''
+        Update attributes of tumour cells and their effects on other cells.
+        '''
         
         cells_to_delete = []
         
         for i, tumour in enumerate(self.cell_list_by_type(self.TUMOUR)):
             
-            # Check for apoptosis
+            # Baseline apoptosis
             if random.random() <= tumour_apoptosis_probability:
                 cells_to_delete.append(tumour)
                 continue
             
-            # Check 1
+            # CHECK 1: if neighbouring CD8 T cell
             cd8t = None
             
             for neighbor, common_surface_area in self.get_cell_neighbor_data_list(tumour):
                 if neighbor:
                     if neighbor.type == self.CD8T:
                         cd8t = neighbor
-
+                        
+                        # CD8 T cell secretes IFN gamma
                         self.helper_func.update_lattice_sites(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM, self.field.IFN_gamma,
                             tumour.targetVolume, cd8t_ifn_secretion_rate)
                         self.shared_steppable_vars["total_ifn_gamma"] += cd8t_ifn_secretion_rate
@@ -330,23 +339,24 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                         # Track CD8 T kills
                         self.shared_steppable_vars["cd8t_kill_attempts"][cd8t.id][0] += 1
                         
-                        # If both are not expressing CD274 and CD8T cell is not at exhaustion threshold, CD8 T cell successfully kills tumour cell:
+                        # Check if CD8 T cell successfully kills tumour cell:
                         if (cd8t.dict["CD274?"] == False or tumour.dict["CD274?"] == False) and cd8t.dict["exhaustion_counter"] < exhaustion_threshold:
                             cd8t.dict["exhaustion_counter"] += 1
                             cells_to_delete.append(tumour)
                             continue
-                        # Else, immune escape occurs
+                        # Else, immune escape and CD8 T exhaustion occurs
                         else:
                             cd8t.dict["exhaustion_counter"] = exhaustion_threshold
                     
-            # Check 2    
+            # CHECK 2: if CD274 expression is induced
             if self.field.IFN_gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > tumour_ifn_pdl1_threshold:
                 tumour.dict["CD274?"] = True
             
             self.helper_func.update_lattice_sites(tumour.xCOM, tumour.yCOM, tumour.zCOM, self.field.TGF_beta,
                 tumour.targetVolume, tumour_tgf_secretion_rate)
             self.shared_steppable_vars["total_tgf_beta"] += tumour_tgf_secretion_rate
-    
+        
+        # Delete tumour cells marked for apoptosis die
         for tumour in cells_to_delete:
             self.delete_cell(tumour)
             self.shared_steppable_vars["dead_tumour_count"] += 1
@@ -358,64 +368,74 @@ class UpdateCAFsSteppable(SteppableBasePy):
         self.helper_func = HelperFunctionsSteppable()
         
     def start(self):
+        
+        # Track model outputs
         self.shared_steppable_vars["dead_caf_count"] = 0
         
     def all_cafs_checks(self, caf, cells_to_delete):
+        '''
+        Update CAFs and myCAFs.
+        '''
         
-        # Check for death
+        # Baseline apoptosis
         if random.random() <= caf_apoptosis_probability:
             cells_to_delete.append(caf)
             return
         
-        # Check 2
+        # CHECK 2: if neighbouring CD8 T cells
         cd8t = None
-            
+        
         for neighbor, common_surface_area in self.get_cell_neighbor_data_list(caf):
             if neighbor:
                 if neighbor.type == self.CD8T:
                     cd8t = neighbor
+                    # Check if CD8 T celle exhaustion occurs
                     if cd8t.dict["CD274?"] == True and caf.dict["CD274?"] == True:
                         cd8t.dict["exhaustion_threshold"] = exhaustion_threshold
         
-        # Check 3
+        # CHECK 3: if CD274 expression is induced
         if caf.dict["CD274?"] == False and self.field.IFN_gamma[caf.xCOM, caf.yCOM, caf.zCOM] > caf_ifn_pdl1_threshold:
             caf.dict["CD274?"] = True
         
     def step(self, mcs):
+        '''
+        Update attributes of CAF cells and their effect on other cells.
+        '''
         
         cells_to_delete = []
         
         for caf in self.cell_list_by_type(self.CAF):
             
-            # Check 2 & 3
+            # CHECK 2 & 3
             self.all_cafs_checks(caf, cells_to_delete)
             
             
-            # Check 4
+            # CHECK 4: if myCAF phenotype induced
             tgf = self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM]
             prob = 1 - (math.exp((math.log(1-(-0.0029*(tgf**2) + 0.0562*tgf + 0.1084)))/86400))
             
             if random.random() <= prob:                    
                 caf.type = self.MYCAF
                 
-            # Action
+            # Secrete TGF-beta
             self.helper_func.update_lattice_sites(caf.xCOM, caf.yCOM, caf.zCOM, self.field.TGF_beta,
                 caf.targetVolume, caf_tgf_secretion_rate)
         
         for mycaf in self.cell_list_by_type(self.MYCAF):
             
-            # "Check" 1
+            # myCAF secrete collagen
             self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.Collagen,
                 mycaf.targetVolume, collagen_secretion_rate)
             
-            # Check 2 & 3
+            # CHECK 2 & 3
             self.all_cafs_checks(mycaf, cells_to_delete)
             
-            # Action
+            # Secrete TGF-beta
             self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.TGF_beta,
                 mycaf.targetVolume, caf_tgf_secretion_rate)
             self.shared_steppable_vars["total_tgf_beta"] += caf_tgf_secretion_rate
-            
+        
+        # Delete CAFs marked for apoptosis die
         for caf in cells_to_delete:
             self.delete_cell(caf)
             self.shared_steppable_vars["dead_caf_count"] += 1
@@ -428,10 +448,15 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
         self.helper_func = HelperFunctionsSteppable()
         
     def start(self):
+        
+        # Track model outputs
         self.shared_steppable_vars["dead_cd8t_count"] = 0
         self.shared_steppable_vars["exhausted_cd8t"] = 0
                
     def step(self, mcs):
+        '''
+        Update attributes of CD8 T cells and their effects on other cells.
+        '''
         
         cells_to_delete = []
         
@@ -446,8 +471,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             # Check 1 done in UpdateTumourCellsSteppable and UpdateCAFsSteppable
             # Check 2 done in UpdateTumourCellsSteppable
                 
-            # Action
-            
+            # CD8 T cell speed is affected by collagen density           
             collagen = int(self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM])
             
             cd8t.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
@@ -456,7 +480,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             collagen = self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM]
             cd8t.dict["force"] = -2585 * collagen + 780
             
-            
+        # Delete CD8 T cells marked for apoptosis 
         for cd8t in cells_to_delete:
             self.shared_steppable_vars["dead_cd8t_count"] +=1
             
