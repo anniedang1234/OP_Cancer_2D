@@ -27,7 +27,7 @@ tumour_apoptosis_probability = 0.000002533
 caf_apoptosis_probability = 0.0
 cd8t_apoptosis_probability = 0.000011
 
-cd8t_ifn_secretion_rate = 0 # still working on it
+cd8t_ifn_secretion_rate = 0.000257
 tumour_tgf_secretion_rate = 0.0000000001
 collagen_secretion_rate = 2
 caf_tgf_secretion_rate = 0.00000010
@@ -37,7 +37,8 @@ caf_ifn_pdl1_threshold = 0.0000000135
 exhaustion_threshold = 17
 
 # Seed cells based on csv file
-cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv"
+#cell_position_file = r"C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv" # On local PC
+cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv" # On DRAC
 
 # Seed cells randomly
 total_cell_count = 40
@@ -496,6 +497,11 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
         SteppableBasePy.__init__(self, frequency)
     
     def step(self, mcs):
+        '''
+        CD8 T cells each move towards the closest respective tumour cell.
+        '''
+        
+        # Sort all tumour cell positions into a binary search tree (BST)
         
         tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
         
@@ -504,15 +510,20 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
         
         tumour_positions = [(tumour.xCOM, tumour.yCOM, tumour.zCOM) for tumour in tumour_cells ]
         tumour_tree = KDTree(tumour_positions)
+        
+        # For each CD8 T cell, find the nearest tumour cell based on the BST
          
         for cd8t in self.cell_list_by_type(self.CD8T):
             
             distance, index = tumour_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
             nearest_tumour = tumour_cells[index]
             
+            # Move towards the tumour cell
+            
             dx = cd8t.xCOM - nearest_tumour.xCOM
             dy = cd8t.yCOM - nearest_tumour.yCOM
             
+            #Normalize the direction vector
             norm = (dx**2 + dy**2)**0.5
             
             if norm > 0:
