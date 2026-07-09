@@ -38,7 +38,7 @@ exhaustion_threshold = 17
 
 # Seed cells based on csv file
 #cell_position_file = r"C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv" # On local PC
-cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv" # On DRAC
+cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv" # On DRAC#
 
 # Seed cells randomly
 total_cell_count = 40
@@ -539,21 +539,38 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
         
+        # Initialize variables, arrays, and files for storing model outputs
+        
         self.step_counter = 0
         self.tumour_speeds = []
         self.caf_speeds = []
         
-        self.file_path = None
-    '''    
+        self.cd8t_file_path = None
+        self.cd8t_file_path = None
+        self.cd8t_file_path = None
+    #'''    
     def start(self):
         
-        # Set up CSV file
+        # Set up CSV files
         output_dir = self.output_dir
-        self.file_path = os.path.join(output_dir, "cd8t_speed.csv")
+        self.cd8t_file_path = os.path.join(output_dir, "cd8t_speed.csv")
+        self.tumour_file_path = os.path.join(output_dir, "tumour_speed.csv")
+        self.caf_file_path = os.path.join(output_dir, "caf_speed.csv")
         
-        with open(self.file_path, "w", newline="") as f:
+        with open(self.cd8t_file_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["MCS", "force", "force"])
+            writer.writerow(["MCS", "force", "speed"])
+        f.close()
+            
+        with open(self.tumour_file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["MCS", "speed"])
+        f.close()
+        
+        with open(self.caf_file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["MCS", "speed"])
+        f.close()
         
         # Plot cd8t speed
         self.plot_cd8t_speed = self.add_new_plot_window(title="CD8 T Speed",
@@ -568,11 +585,19 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
             style='Lines', color='lightsteelblue', size=5) 
         
     def step(self, mcs):
+        '''
+        Calculates average speed of each cell type.
+        
+        Returns:
+            CSV file for each cell type with the speed of each cell as computed over 10 MCS.
+        '''
         
         cd8t_speeds = []
         
-        self.shared_steppable_vars["default_cd8t_speed"] += 100
-        print(self.shared_steppable_vars["default_cd8t_speed"])
+        #self.shared_steppable_vars["default_cd8t_speed"] += 100
+        #print(self.shared_steppable_vars["default_cd8t_speed"])
+        
+        # Track displacement every 10 MCS
         
         if self.step_counter != 0 and self.step_counter % 10 == 0:
         
@@ -588,16 +613,26 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                 cell.dict["position_history"][1] = cell.yCOM
                 cell.dict["position_history"][2] = cell.zCOM
                 
+                # Store displacement in CSV files
+                
                 if cell.type == self.TUMOUR:
                     if displacement < 5: # Remove artifact outliers
+                        with open(self.tumour_file_path, "a", newline="") as f:
+                            writer = csv.writer(f)
+                            writer.writerow([mcs, (displacement/10)])
+                        f.close()
                         self.tumour_speeds.append(displacement)                        
                 elif cell.type == self.CAF or cell.type == self.MYCAF:
+                    with open(self.caf_file_path, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([mcs, (displacement/10)])
+                    f.close()
                     self.caf_speeds.append(displacement)
                 elif cell.type == self.CD8T:
-                    
-                    with open(self.file_path, "a", newline="") as f:
-                            writer = csv.writer(f)
-                            writer.writerow([mcs, cell.dict["force"], (displacement/10)])
+                    with open(self.cd8t_file_path, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([mcs, cell.dict["force"], (displacement/10)])
+                    f.close()
                     cd8t_speeds.append(displacement)
                     
                                     
@@ -618,6 +653,9 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
         self.file_path = None
         
     def start(self):
+        
+        # Set up CSV file
+        
         output_dir = self.output_dir
         self.file_path = os.path.join(output_dir, "cd8t_kill_attempts.csv")
         
@@ -626,6 +664,14 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
             writer.writerow(["Cell_ID", "Kill_Attempts", "End_Time (MCS)", "Kill_Attempts_/_MCS"])
         
     def finish(self):
+        '''
+        Calculates average rate of kill attempts by CD8 T cells.
+        
+        Returns:
+            CSV file with the total number of kill attempts, lifespan, and kill rate per MCS of each CD8 T cell.
+        '''
+        
+        # Store CD8 T kill attempt counts in CSV file
         
         with open(self.file_path, "a", newline="") as f:
             writer = csv.writer(f)
@@ -648,6 +694,14 @@ class OutputCSVSteppable(SteppableBasePy):
         self.file_path = None
         
     def start(self): 
+        '''
+        Computes model outputs.
+        
+        Returns:
+            CSV file for live and dead counts of each cell type over time.
+            CSV file for count of cells expressing CD274, for each cell type.
+            ...
+        '''
         
         output_dir = self.output_dir
         self.cell_count_file_path = os.path.join(output_dir, "cell_count.csv")
@@ -787,6 +841,4 @@ class PlotsSteppable(SteppableBasePy):
                                 
         
         
-        
-        
-            
+      
