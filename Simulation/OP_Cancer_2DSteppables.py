@@ -16,8 +16,8 @@ tumour_vol = 15 #27
 caf_vol = 309 #551
 cd8t_vol = 5 #8
 
-tumour_lambda_vol = 50 
-caf_lambda_vol = 10
+tumour_lambda_vol = 10 
+caf_lambda_vol = 15
 cd8t_lambda_vol = 50 
 
 tumour_growth = 1.00000083
@@ -41,11 +41,11 @@ exhaustion_threshold = 17
 cell_position_file = "C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv"
 
 # Seed cells randomly
-total_cell_count = 40
+total_cell_count = 10
 
-tumour_proportion = 0.92307
-caf_proportion = 0
-cd8t_proportion = 0.0769
+tumour_proportion = 0.5
+caf_proportion = 0.5
+cd8t_proportion = 0
 
 tumour_cd274_proportion = 0.07119
 caf_cd274_proportion = 0.11358
@@ -114,7 +114,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         
         dims = self.cellField.getDim()
         
-        self.shared_steppable_vars["default_cd8t_speed"] = 1000
+        self.shared_steppable_vars["default_cd8t_speed"] = 500
         
         # Seed cells based on csv file
         '''
@@ -508,17 +508,32 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
         self.tumour_speeds = []
         self.caf_speeds = []
         
-        self.file_path = None
+        self.cd8t_file_path = None
+        self.cd8t_file_path = None
+        self.cd8t_file_path = None
     #'''    
     def start(self):
         
         # Set up CSV file
         output_dir = self.output_dir
-        self.file_path = os.path.join(output_dir, "cd8t_speed.csv")
+        self.cd8t_file_path = os.path.join(output_dir, "cd8t_speed.csv")
+        self.tumour_file_path = os.path.join(output_dir, "tumour_speed.csv")
+        self.caf_file_path = os.path.join(output_dir, "caf_speed.csv")
         
-        with open(self.file_path, "w", newline="") as f:
+        with open(self.cd8t_file_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["MCS", "force", "force"])
+            writer.writerow(["MCS", "force", "speed"])
+        f.close()
+            
+        with open(self.tumour_file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["MCS", "speed"])
+        f.close()
+        
+        with open(self.caf_file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["MCS", "speed"])
+        f.close()
         
         # Plot cd8t speed
         self.plot_cd8t_speed = self.add_new_plot_window(title="CD8 T Speed",
@@ -555,14 +570,22 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                 
                 if cell.type == self.TUMOUR:
                     if displacement < 5: # Remove artifact outliers
+                        with open(self.tumour_file_path, "a", newline="") as f:
+                            writer = csv.writer(f)
+                            writer.writerow([mcs, (displacement/10)])
+                        f.close()
                         self.tumour_speeds.append(displacement)                        
                 elif cell.type == self.CAF or cell.type == self.MYCAF:
+                    with open(self.caf_file_path, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([mcs, (displacement/10)])
+                    f.close()
                     self.caf_speeds.append(displacement)
                 elif cell.type == self.CD8T:
-                    
-                    with open(self.file_path, "a", newline="") as f:
-                            writer = csv.writer(f)
-                            writer.writerow([mcs, cell.dict["force"], (displacement/10)])
+                    with open(self.cd8t_file_path, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([mcs, cell.dict["force"], (displacement/10)])
+                    f.close()
                     cd8t_speeds.append(displacement)
                     
                                     
@@ -616,7 +639,8 @@ class OutputCSVSteppable(SteppableBasePy):
         
         output_dir = self.output_dir
         self.cell_count_file_path = os.path.join(output_dir, "cell_count.csv")
-        
+        self.cd274_file_path = os.path.join(output_dir, "cd274.csv")
+                
         with open(self.cell_count_file_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["MCS", "Live Tumour", "Live CAF", "Live CD8 T", "Dead Tumour", "Dead CAF", "Dead CD8 T"])

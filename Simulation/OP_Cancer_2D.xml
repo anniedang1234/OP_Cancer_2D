@@ -13,7 +13,7 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="100" y="100" z="1"/>
+      <Dimensions x="150" y="150" z="1"/>
       <Steps>200</Steps>
       <Temperature>3</Temperature>
       <NeighborOrder>3</NeighborOrder>
