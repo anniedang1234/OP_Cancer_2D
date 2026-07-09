@@ -12,16 +12,18 @@ from scipy.spatial import KDTree
 
 # GLOBAL VARIABLES
 
-tumour_vol = 15 #27
-caf_vol = 309 #551
-cd8t_vol = 5 #8
+tumour_vol = 27
+caf_vol = 551
+cd8t_vol = 8
 
 tumour_lambda_vol = 10 
-caf_lambda_vol = 15
+caf_lambda_vol = 10
 cd8t_lambda_vol = 50 
 
 tumour_growth = 1.00000083
 caf_growth = 1.00001619
+
+tumour_speed = 8
 
 tumour_apoptosis_probability = 0.000002533
 caf_apoptosis_probability = 0.0
@@ -43,8 +45,8 @@ cell_position_file = "C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_
 # Seed cells randomly
 total_cell_count = 10
 
-tumour_proportion = 0.5
-caf_proportion = 0.5
+tumour_proportion = 1
+caf_proportion = 0
 cd8t_proportion = 0
 
 tumour_cd274_proportion = 0.07119
@@ -494,6 +496,26 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             if norm > 0:
                 cd8t.lambdaVecX = dx/norm * cd8t.dict["force"]
                 cd8t.lambdaVecY = dy/norm * cd8t.dict["force"]
+                
+                
+class TumourCellsMoveSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+    def start(self):
+
+        for tumour in self.cell_list_by_type(self.TUMOUR):
+            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
+            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
+
+
+    def step(self, mcs):
+        
+        if mcs % 10 == 0:
+
+            for tumour in self.cell_list_by_type(self.TUMOUR):
+                tumour.lambdaVecX = uniform(-0.5,0.5) * tumour_speed
+                tumour.lambdaVecY = uniform(-0.5,0.5) * tumour_speed
 
 
 ########################################     
