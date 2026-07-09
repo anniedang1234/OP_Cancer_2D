@@ -23,6 +23,8 @@ cd8t_lambda_vol = 50
 tumour_growth = 1.00000083
 caf_growth = 1.00001619
 
+tumour_speed = 8
+
 tumour_apoptosis_probability = 0.000002533
 caf_apoptosis_probability = 0.0
 cd8t_apoptosis_probability = 0.000011
@@ -529,6 +531,26 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             if norm > 0:
                 cd8t.lambdaVecX = dx/norm * cd8t.dict["force"]
                 cd8t.lambdaVecY = dy/norm * cd8t.dict["force"]
+
+
+class TumourCellsMoveSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+    def start(self):
+
+        for tumour in self.cell_list_by_type(self.TUMOUR):
+            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
+            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
+
+
+    def step(self, mcs):
+        
+        if mcs % 10 == 0:
+
+            for tumour in self.cell_list_by_type(self.TUMOUR):
+                tumour.lambdaVecX = uniform(-0.5,0.5) * tumour_speed
+                tumour.lambdaVecY = uniform(-0.5,0.5) * tumour_speed
 
 
 ########################################     
