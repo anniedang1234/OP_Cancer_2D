@@ -13,7 +13,7 @@
    <Potts>
       
       <!-- Basic properties of CPM (GGH) algorithm -->
-      <Dimensions x="150" y="150" z="1"/>
+      <Dimensions x="100" y="100" z="1"/>
       <Steps>200</Steps>
       <Temperature>3</Temperature>
       <NeighborOrder>3</NeighborOrder>
@@ -207,7 +207,7 @@
             <FieldName>TGF_beta</FieldName>
             <GlobalDiffusionConstant>67</GlobalDiffusionConstant>
             <GlobalDecayConstant>0.0000481</GlobalDecayConstant>
-            <InitialConcentrationExpression>0.00000002630</InitialConcentrationExpression>
+            <InitialConcentrationExpression>0</InitialConcentrationExpression> <!-- was 0.00000002630 -->
          </DiffusionData>
          <SecretionData>   
          </SecretionData>

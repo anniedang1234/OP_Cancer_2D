@@ -2,9 +2,9 @@
 from cc3d import CompuCellSetup
 
 
-###################################################
-## CLASSES FOR SIMULATING BIOPHYSICAL MECHANISMS ##
-###################################################
+##############################
+## CLASSES FOR INITIALIZING ##
+##############################
 
 from OP_Cancer_2DSteppables import HelperFunctionsSteppable
 CompuCellSetup.register_steppable(steppable=HelperFunctionsSteppable(frequency=1))          
@@ -12,11 +12,19 @@ CompuCellSetup.register_steppable(steppable=HelperFunctionsSteppable(frequency=1
 from OP_Cancer_2DSteppables import InitializeCellPositionSteppable
 CompuCellSetup.register_steppable(steppable=InitializeCellPositionSteppable(frequency=1))          
 
+##################################
+## CLASSES FOR BASIC MECHANISMS ##
+##################################   
+
 from OP_Cancer_2DSteppables import GrowthSteppable
 CompuCellSetup.register_steppable(steppable=GrowthSteppable(frequency=1))
 
 from OP_Cancer_2DSteppables import MitosisSteppable
 CompuCellSetup.register_steppable(steppable=MitosisSteppable(frequency=1))
+
+##########################################
+## CLASSES FOR UPDATING CELL PROPERTIES ##
+##########################################
 
 from OP_Cancer_2DSteppables import UpdateTumourCellsSteppable
 CompuCellSetup.register_steppable(steppable=UpdateTumourCellsSteppable(frequency=1))
@@ -27,11 +35,18 @@ CompuCellSetup.register_steppable(steppable=UpdateCAFsSteppable(frequency=1))
 from OP_Cancer_2DSteppables import UpdateCD8TCellsSteppable
 CompuCellSetup.register_steppable(steppable=UpdateCD8TCellsSteppable(frequency=1))
 
+###############################
+## CLASSES FOR CELL MOVEMENT ##
+###############################
+
 from OP_Cancer_2DSteppables import CD8TCellsMoveSteppable
 CompuCellSetup.register_steppable(steppable=CD8TCellsMoveSteppable(frequency=1))
 
 from OP_Cancer_2DSteppables import TumourCellsMoveSteppable
 CompuCellSetup.register_steppable(steppable=TumourCellsMoveSteppable(frequency=1))
+
+from OP_Cancer_2DSteppables import CAFsMoveSteppable
+CompuCellSetup.register_steppable(steppable=CAFsMoveSteppable(frequency=1))
 
 
 ########################################     

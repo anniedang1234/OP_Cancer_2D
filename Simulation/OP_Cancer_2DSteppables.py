@@ -12,18 +12,20 @@ from scipy.spatial import KDTree
 
 # GLOBAL VARIABLES
 
-tumour_vol = 27
-caf_vol = 551
-cd8t_vol = 8
+tumour_vol = 9.852
+caf_vol = 198
+cd8t_vol = 3
 
-tumour_lambda_vol = 10 
+tumour_lambda_vol = 20
 caf_lambda_vol = 10
-cd8t_lambda_vol = 50 
+cd8t_lambda_vol = 100
 
 tumour_growth = 1.00000083
 caf_growth = 1.00001619
 
-tumour_speed = 8
+tumour_speed = 700
+caf_speed = 150
+default_cd8t_speed = 3
 
 tumour_apoptosis_probability = 0.000002533
 caf_apoptosis_probability = 0.0
@@ -43,10 +45,10 @@ exhaustion_threshold = 17
 cell_position_file = "C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv"
 
 # Seed cells randomly
-total_cell_count = 10
+total_cell_count = 5
 
-tumour_proportion = 1
-caf_proportion = 0
+tumour_proportion = 0
+caf_proportion = 1
 cd8t_proportion = 0
 
 tumour_cd274_proportion = 0.07119
@@ -54,9 +56,9 @@ caf_cd274_proportion = 0.11358
 cd8t_cd274_proportion = 0.08830
 
 
-###################################################
-## CLASSES FOR SIMULATING BIOPHYSICAL MECHANISMS ##
-###################################################
+##############################
+## CLASSES FOR INITIALIZING ##
+##############################
 
 class HelperFunctionsSteppable(SteppableBasePy):
     def update_lattice_sites(self, x, y, z, field_type, volume, value):
@@ -115,9 +117,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         '''
         
         dims = self.cellField.getDim()
-        
-        self.shared_steppable_vars["default_cd8t_speed"] = 500
-        
+               
         # Seed cells based on csv file
         '''
         with open(cell_position_file, newline='') as f:
@@ -149,7 +149,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                     cell.targetVolume = cd8t_vol
                     cell.lambdaVolume = cd8t_lambda_vol
                     cell.dict["exhaustion_counter"] = 0
-                    cell.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
+                    cell.dict["speed"] = default_cd8t_speed
                                     
                 # Set gene expression
                 if float(row["CD274"]) == 0:
@@ -217,7 +217,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             cell.targetVolume = cd8t_vol
             cell.lambdaVolume = cd8t_lambda_vol
             cell.dict["exhaustion_counter"] = 0
-            cell.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
+            cell.dict["speed"] = default_cd8t_speed
             
             cell.dict["position_history"] = [x, y, z]
             
@@ -229,6 +229,11 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
             
         #'''
+
+
+##################################
+## CLASSES FOR BASIC MECHANISMS ##
+##################################        
         
         
 class GrowthSteppable(SteppableBasePy):
@@ -280,14 +285,19 @@ class MitosisSteppable(MitosisSteppableBase):
         # reinitialise dict attributes based on cell type
         if self.child_cell.type == self.CD8T:  # CD8T
             self.child_cell.dict["exhaustion_counter"] = 0
-            self.child_cell.dict["cd8t-speed"] = self.shared_steppable_vars["default_cd8t_speed"]
+            self.child_cell.dict["cd8t-speed"] = default_cd8t_speed
             self.child_cell.dict["CD274?"] = False
         else:  # Tumour, CAF, or myCAF
             self.child_cell.dict["CD274?"] = False
 
         # for more control of what gets copied from parent to child use cloneAttributes function
         # self.clone_attributes(source_cell=self.parent_cell, target_cell=self.child_cell, no_clone_key_dict_list=[attrib1, attrib2]) 
-        
+
+ 
+##########################################
+## CLASSES FOR UPDATING CELL PROPERTIES ##
+##########################################        
+
 
 class UpdateTumourCellsSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -452,11 +462,11 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             
             collagen = int(self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM])
             
-            cd8t.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
+            cd8t.dict["speed"] = default_cd8t_speed
             
                         
             collagen = self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM]
-            cd8t.dict["force"] = -2585 * collagen + 780
+            #cd8t.dict["speed"] = -2585 * collagen + 780
             
             
         for cd8t in cells_to_delete:
@@ -468,13 +478,45 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             self.delete_cell(cd8t)
             
             
-        
+###############################
+## CLASSES FOR CELL MOVEMENT ##
+###############################
+
+
 class CD8TCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
+        
+    def compute_shift(self, cell, end, distance):
+        
+        dims = self.cellField.getDim()
+        
+        x0 = cell.xCOM; y0 = cell.yCOM; z0 = cell.zCOM
+        x1, y1, z1 = end
+        
+        dest_x = x0; dest_y = y0; dest_z = z0
+        
+        for i in range (1, int(round(distance)) + 1):
+            t = i / distance
+            x = int(round(x0 + (x1 - x0) * t))
+            y = int(round(y0 + (y1 - y0) * t))
+            z = int(round(z0 + (z1 - z0) * t))
+        
+            if not (0 <= x < dims.x and 0 <= y < dims.y and 0 <= z < dims.z):
+                break
+                
+            occupant = self.cell_field[x, y, z]
+            
+            if occupant is None or occupant.id == cell.id:
+                dest_x = x; dest_y = y; dest_z = z
+            else:
+                break
+                
+        return(int(round(dest_x - x0)), int(round(dest_y - y0)), int(round(dest_z - z0)))
+        
     
     def step(self, mcs):
-        
+                       
         tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
         
         if len(tumour_cells) == 0:
@@ -487,17 +529,29 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             
             distance, index = tumour_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
             nearest_tumour = tumour_cells[index]
-            
-            dx = cd8t.xCOM - nearest_tumour.xCOM
-            dy = cd8t.yCOM - nearest_tumour.yCOM
-            
-            norm = (dx**2 + dy**2)**0.5
-            
-            if norm > 0:
-                cd8t.lambdaVecX = dx/norm * cd8t.dict["force"]
-                cd8t.lambdaVecY = dy/norm * cd8t.dict["force"]
-                
-                
+                                
+            if distance > 0:     
+                                              
+                # Set new pixel
+                if distance <= int(cd8t.dict["speed"]):
+                    shift = self.compute_shift(cd8t, (nearest_tumour.xCOM, nearest_tumour.yCOM, nearest_tumour.zCOM),
+                        distance)
+                    self.move_cell(cd8t, shift)
+                else:
+                    
+                    dx = nearest_tumour.xCOM - cd8t.xCOM
+                    dy = nearest_tumour.yCOM - cd8t.yCOM
+                    dz = nearest_tumour.zCOM - cd8t.zCOM
+                    
+                    end_x = cd8t.xCOM + int((dx/distance) * int(cd8t.dict["speed"]))
+                    end_y = cd8t.yCOM + int((dy/distance) * int(cd8t.dict["speed"]))
+                    end_z = cd8t.zCOM + int((dz/distance) * int(cd8t.dict["speed"]))
+                    
+                    shift = self.compute_shift(cd8t, (end_x, end_y, end_z), int(cd8t.dict["speed"]))
+                    
+                    self.move_cell(cd8t, shift)
+
+               
 class TumourCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
@@ -511,11 +565,26 @@ class TumourCellsMoveSteppable(SteppableBasePy):
 
     def step(self, mcs):
         
-        if mcs % 10 == 0:
+        for tumour in self.cell_list_by_type(self.TUMOUR):
+            tumour.lambdaVecX = uniform(-0.5,0.5) * tumour_speed
+            tumour.lambdaVecY = uniform(-0.5,0.5) * tumour_speed
+            
+class CAFsMoveSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+    def start(self):
 
-            for tumour in self.cell_list_by_type(self.TUMOUR):
-                tumour.lambdaVecX = uniform(-0.5,0.5) * tumour_speed
-                tumour.lambdaVecY = uniform(-0.5,0.5) * tumour_speed
+        for caf in list(self.cell_list_by_type(self.CAF)) + list(self.cell_list_by_type(self.MYCAF)):
+            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
+
+
+    def step(self, mcs):
+        
+        for caf in list(self.cell_list_by_type(self.CAF)) + list(self.cell_list_by_type(self.MYCAF)):
+            caf.lambdaVecX = caf_speed * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_speed * uniform(-0.5,0.5)
 
 
 ########################################     
@@ -573,10 +642,10 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
         
         cd8t_speeds = []
         
-        #self.shared_steppable_vars["default_cd8t_speed"] += 100
-        #print(self.shared_steppable_vars["default_cd8t_speed"])
+        #default_cd8t_speed += 100
+        #print(default_cd8t_speed)
         
-        if self.step_counter != 0 and self.step_counter % 10 == 0:
+        if self.step_counter != 0 and self.step_counter % 1 == 0:
         
             for cell in self.cell_list:
                 
@@ -594,19 +663,19 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
                     if displacement < 5: # Remove artifact outliers
                         with open(self.tumour_file_path, "a", newline="") as f:
                             writer = csv.writer(f)
-                            writer.writerow([mcs, (displacement/10)])
+                            writer.writerow([mcs, (displacement)])
                         f.close()
                         self.tumour_speeds.append(displacement)                        
                 elif cell.type == self.CAF or cell.type == self.MYCAF:
                     with open(self.caf_file_path, "a", newline="") as f:
                         writer = csv.writer(f)
-                        writer.writerow([mcs, (displacement/10)])
+                        writer.writerow([mcs, (displacement)])
                     f.close()
                     self.caf_speeds.append(displacement)
                 elif cell.type == self.CD8T:
                     with open(self.cd8t_file_path, "a", newline="") as f:
                         writer = csv.writer(f)
-                        writer.writerow([mcs, cell.dict["force"], (displacement/10)])
+                        writer.writerow([mcs, cell.dict["speed"], (displacement)])
                     f.close()
                     cd8t_speeds.append(displacement)
                     
