@@ -10,37 +10,70 @@ import random
 from random import uniform
 from scipy.spatial import KDTree
 
-# GLOBAL VARIABLES
+######################
+## GLOBAL VARIABLES ##
+######################
 
-tumour_vol = 27
-caf_vol = 551
-cd8t_vol = 8
+# Open files
+
+#parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" 
+#cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\patient28_truncated_normalized_filtered.csv" # On local PC
+
+# On DRAC
+parameters_file = r"/home/annied/OP_Cancer_2D/parameters.csv"
+cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_edited.csv" 
+
+# Read parameters
+
+with open(parameters_file, newline='') as f:
+    
+    reader = csv.reader(f)
+    
+    for i, line in enumerate(reader):
+        if i == 8:
+            tumour_vol = round(float(line[1]))
+        elif i == 9:
+            caf_vol = round(float(line[1]))
+        elif i == 10:
+            cd8t_vol = round(float(line[1]))
+        elif i == 11:
+            tumour_prolif = float(line[1])
+        elif i == 12:
+            caf_prolif = float(line[1])
+        elif i == 13:
+            tumour_apoptosis_prob = float(line[1])
+        elif i == 14:
+            caf_apoptosis_prob = float(line[1])
+        elif i == 15:
+            cd8t_apoptosis_prob = float(line[1])
+        elif i == 16:
+            tumour_migration = float(line[1])
+        elif i == 17:
+            caf_migration = float(line[1])
+        elif i == 18:
+            default_cd8t_migration = float(line[1])
+        elif i == 19:
+            cd8t_ifn_secretion = float(line[1])
+        elif i == 20:
+            tumour_tgf_secretion = float(line[1])
+        elif i == 21:
+            collagen_secretion = float(line[1])
+        elif i == 22:
+            caf_tgf_secretion = float(line[1])
+        elif i == 23:
+            exhaustion_threshold = float(line[1])
+        elif i == 24:
+            tumour_ifn_pdl1_threshold = float(line[1])
+        elif i == 25:
+            caf_ifn_pdl1_threshold = float(line[1])
+            
+f.close()
+
+# Set established parameters (will not change
 
 tumour_lambda_vol = 50 
 caf_lambda_vol = 10
 cd8t_lambda_vol = 50 
-
-tumour_growth = 1.00000083
-caf_growth = 1.00001619
-
-tumour_speed = 8
-
-tumour_apoptosis_probability = 0.000002533
-caf_apoptosis_probability = 0.0
-cd8t_apoptosis_probability = 0.000011
-
-cd8t_ifn_secretion_rate = 0.000257
-tumour_tgf_secretion_rate = 0.0000000001
-collagen_secretion_rate = 2
-caf_tgf_secretion_rate = 0.00000010
-
-tumour_ifn_pdl1_threshold = 0.00000027
-caf_ifn_pdl1_threshold = 0.0000000135
-exhaustion_threshold = 17
-
-# Seed cells based on csv file
-#cell_position_file = r"C:\CompuCell3D\ABM_Results\patient28_truncated_normalized_filtered.csv" # On local PC
-cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_truncated_normalized_filtered.csv" # On DRAC#
 
 # Seed cells randomly
 total_cell_count = 40
@@ -54,18 +87,19 @@ caf_cd274_proportion = 0.11358
 cd8t_cd274_proportion = 0.08830
 
 
-###################################################
-## CLASSES FOR SIMULATING BIOPHYSICAL MECHANISMS ##
-###################################################
+##############################
+## CLASSES FOR INITIALIZING ##
+##############################
+  
 
 class HelperFunctionsSteppable(SteppableBasePy):
     def update_lattice_sites(self, x, y, z, field_type, volume, value):
         '''
         If [field_type] is the cell field and [value] is a cell:
-            Changes [volume] lattice sites of [field_type] to the cell type of [value]
+            Change [volume] lattice sites of [field_type] to the cell type of [value]
         
         Otherwise:
-            Changes [volume] lattice sites of [field_type] by a total of [value] around [x,y,z]
+            Change [volume] lattice sites of [field_type] by a total of [value] around [x,y,z]
         
         Args:
             x, y, z: the central coordinates around which the lattice sites will be modified
@@ -116,8 +150,6 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         
         dims = self.cellField.getDim()
         
-        self.shared_steppable_vars["default_cd8t_speed"] = 500
-        
         # Seed cells based on csv file
         #'''
         with open(cell_position_file, newline='') as f:
@@ -149,7 +181,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                     cell.targetVolume = cd8t_vol
                     cell.lambdaVolume = cd8t_lambda_vol
                     cell.dict["exhaustion_counter"] = 0
-                    cell.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
+                    cell.dict["migration"] = default_cd8t_migration
                                     
                 # Set gene expression
                 if float(row["CD274"]) == 0:
@@ -217,7 +249,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             cell.targetVolume = cd8t_vol
             cell.lambdaVolume = cd8t_lambda_vol
             cell.dict["exhaustion_counter"] = 0
-            cell.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
+            cell.dict["migration"] = default_cd8t_migration
             
             cell.dict["position_history"] = [x, y, z]
             
@@ -229,7 +261,12 @@ class InitializeCellPositionSteppable(SteppableBasePy):
             self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
             
         #'''
-        
+
+
+##################################
+## CLASSES FOR BASIC MECHANISMS ##
+##################################  
+
         
 class GrowthSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
@@ -242,9 +279,9 @@ class GrowthSteppable(SteppableBasePy):
         
         for cell in self.cell_list:
             if cell.type == self.TUMOUR: # Tumour cells
-                cell.targetVolume *= tumour_growth
+                cell.targetVolume *= tumour_prolif
             elif cell.type == self.CAF or cell.type == self.MYCAF:
-                cell.targetVolume *= caf_growth    
+                cell.targetVolume *= caf_prolif    
 
         
 class MitosisSteppable(MitosisSteppableBase):
@@ -286,10 +323,15 @@ class MitosisSteppable(MitosisSteppableBase):
         # Initialize attributes based on cell type
         if self.child_cell.type == self.CD8T:  # CD8T
             self.child_cell.dict["exhaustion_counter"] = 0
-            self.child_cell.dict["cd8t-speed"] = self.shared_steppable_vars["default_cd8t_speed"]
+            self.child_cell.dict["cd8t-migration"] = default_cd8t_migration
             self.child_cell.dict["CD274?"] = False
         else:  # Tumour, CAF, or myCAF
             self.child_cell.dict["CD274?"] = False
+
+
+##########################################
+## CLASSES FOR UPDATING CELL PROPERTIES ##
+##########################################  
 
 
 class UpdateTumourCellsSteppable(SteppableBasePy):
@@ -298,9 +340,11 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
         self.helper_func = HelperFunctionsSteppable()
         
     def start(self):
-        
+              
         # Track model outputs
-        
+        '''
+        Move the tumour cell in a random direction at the tumour migration rate.
+        '''
         self.shared_steppable_vars["dead_tumour_count"] = 0
         self.shared_steppable_vars["total_ifn_gamma"] = 0
         self.shared_steppable_vars["total_tgf_beta"] = 0
@@ -322,7 +366,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
         for i, tumour in enumerate(self.cell_list_by_type(self.TUMOUR)):
             
             # Baseline apoptosis
-            if random.random() <= tumour_apoptosis_probability:
+            if random.random() <= tumour_apoptosis_prob:
                 cells_to_delete.append(tumour)
                 continue
             
@@ -336,8 +380,8 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                         
                         # CD8 T cell secretes IFN gamma
                         self.helper_func.update_lattice_sites(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM, self.field.IFN_gamma,
-                            tumour.targetVolume, cd8t_ifn_secretion_rate)
-                        self.shared_steppable_vars["total_ifn_gamma"] += cd8t_ifn_secretion_rate
+                            tumour.targetVolume, cd8t_ifn_secretion)
+                        self.shared_steppable_vars["total_ifn_gamma"] += cd8t_ifn_secretion
                         
                         # Track CD8 T kills
                         self.shared_steppable_vars["cd8t_kill_attempts"][cd8t.id][0] += 1
@@ -356,8 +400,8 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                 tumour.dict["CD274?"] = True
             
             self.helper_func.update_lattice_sites(tumour.xCOM, tumour.yCOM, tumour.zCOM, self.field.TGF_beta,
-                tumour.targetVolume, tumour_tgf_secretion_rate)
-            self.shared_steppable_vars["total_tgf_beta"] += tumour_tgf_secretion_rate
+                tumour.targetVolume, tumour_tgf_secretion)
+            self.shared_steppable_vars["total_tgf_beta"] += tumour_tgf_secretion
         
         # Delete tumour cells marked for apoptosis die
         for tumour in cells_to_delete:
@@ -381,7 +425,7 @@ class UpdateCAFsSteppable(SteppableBasePy):
         '''
         
         # Baseline apoptosis
-        if random.random() <= caf_apoptosis_probability:
+        if random.random() <= caf_apoptosis_prob:
             cells_to_delete.append(caf)
             return
         
@@ -422,21 +466,21 @@ class UpdateCAFsSteppable(SteppableBasePy):
                 
             # Secrete TGF-beta
             self.helper_func.update_lattice_sites(caf.xCOM, caf.yCOM, caf.zCOM, self.field.TGF_beta,
-                caf.targetVolume, caf_tgf_secretion_rate)
+                caf.targetVolume, caf_tgf_secretion)
         
         for mycaf in self.cell_list_by_type(self.MYCAF):
             
             # myCAF secrete collagen
             self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.Collagen,
-                mycaf.targetVolume, collagen_secretion_rate)
+                mycaf.targetVolume, collagen_secretion)
             
             # CHECK 2 & 3
             self.all_cafs_checks(mycaf, cells_to_delete)
             
             # Secrete TGF-beta
             self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.TGF_beta,
-                mycaf.targetVolume, caf_tgf_secretion_rate)
-            self.shared_steppable_vars["total_tgf_beta"] += caf_tgf_secretion_rate
+                mycaf.targetVolume, caf_tgf_secretion)
+            self.shared_steppable_vars["total_tgf_beta"] += caf_tgf_secretion
         
         # Delete CAFs marked for apoptosis die
         for caf in cells_to_delete:
@@ -465,7 +509,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
         
         # Apoptosis rate
         for cd8t in self.cell_list_by_type(self.CD8T):
-            if random.random() <= cd8t_apoptosis_probability:
+            if random.random() <= cd8t_apoptosis_prob:
                 cells_to_delete.append(cd8t)
                 continue
         
@@ -474,14 +518,14 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             # Check 1 done in UpdateTumourCellsSteppable and UpdateCAFsSteppable
             # Check 2 done in UpdateTumourCellsSteppable
                 
-            # CD8 T cell speed is affected by collagen density           
+            # CD8 T cell migration is affected by collagen density           
             collagen = int(self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM])
             
-            cd8t.dict["force"] = self.shared_steppable_vars["default_cd8t_speed"]
+            cd8t.dict["migration"] = default_cd8t_migration
             
                         
             collagen = self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM]
-            cd8t.dict["force"] = -2585 * collagen + 780
+            cd8t.dict["migration"] = -2585 * collagen + 780
             
         # Delete CD8 T cells marked for apoptosis 
         for cd8t in cells_to_delete:
@@ -493,18 +537,59 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             self.delete_cell(cd8t)
             
             
-        
+###############################
+## CLASSES FOR CELL MOVEMENT ##
+###############################
+
+
 class CD8TCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
+        
+    def compute_shift(self, cell, distance, end):
+        '''
+        Compute how far CD8 T cells can move based on possible obstructions in their path.
+        
+        Arguments:
+            cell: CD8 T cell that will move.
+            distance: the farthest distance the CD8 T cell can move.
+            end: the farthest coordinates the CD8 T cell can move to.
+            
+        Returns:
+            The direction vector of the CD8 T cell, indicating how many lattice sites in the direction of each axis (x,y,z) the cell will move.
+        '''
+                
+        dims = self.cellField.getDim()
+        
+        x0 = cell.xCOM; y0 = cell.yCOM; z0 = cell.zCOM
+        x1, y1, z1 = end
+        
+        dest_x = x0; dest_y = y0; dest_z = z0
+        
+        for i in range (1, int(round(distance)) + 1):
+            t = i / distance
+            x = int(round(x0 + (x1 - x0) * t))
+            y = int(round(y0 + (y1 - y0) * t))
+            z = int(round(z0 + (z1 - z0) * t))
+        
+            if not (0 <= x < dims.x and 0 <= y < dims.y and 0 <= z < dims.z):
+                break
+                
+            occupant = self.cell_field[x, y, z]
+            
+            if occupant is None or occupant.id == cell.id:
+                dest_x = x; dest_y = y; dest_z = z
+            else:
+                break
+                
+        return(int(round(dest_x - x0)), int(round(dest_y - y0)), int(round(dest_z - z0)))
+        
     
     def step(self, mcs):
         '''
-        CD8 T cells each move towards the closest respective tumour cell.
+        Find the tumour cell nearest to each CD8 T cell and move the CD8 T cell in that direction at the appropriate migration rate.
         '''
-        
-        # Sort all tumour cell positions into a binary search tree (BST)
-        
+                       
         tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
         
         if len(tumour_cells) == 0:
@@ -512,60 +597,91 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
         
         tumour_positions = [(tumour.xCOM, tumour.yCOM, tumour.zCOM) for tumour in tumour_cells ]
         tumour_tree = KDTree(tumour_positions)
-        
-        # For each CD8 T cell, find the nearest tumour cell based on the BST
          
         for cd8t in self.cell_list_by_type(self.CD8T):
             
             distance, index = tumour_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
             nearest_tumour = tumour_cells[index]
-            
-            # Move towards the tumour cell
-            
-            dx = cd8t.xCOM - nearest_tumour.xCOM
-            dy = cd8t.yCOM - nearest_tumour.yCOM
-            
-            #Normalize the direction vector
-            norm = (dx**2 + dy**2)**0.5
-            
-            if norm > 0:
-                cd8t.lambdaVecX = dx/norm * cd8t.dict["force"]
-                cd8t.lambdaVecY = dy/norm * cd8t.dict["force"]
+                                
+            if distance > 0:     
+                                              
+                # Set new pixel
+                if distance <= int(cd8t.dict["migration"]):
+                    shift = self.compute_shift(cd8t, distance, (nearest_tumour.xCOM, nearest_tumour.yCOM, nearest_tumour.zCOM))
+                    self.move_cell(cd8t, shift)
+                else:
+                    
+                    dx = nearest_tumour.xCOM - cd8t.xCOM
+                    dy = nearest_tumour.yCOM - cd8t.yCOM
+                    dz = nearest_tumour.zCOM - cd8t.zCOM
+                    
+                    end_x = cd8t.xCOM + int((dx/distance) * int(cd8t.dict["migration"]))
+                    end_y = cd8t.yCOM + int((dy/distance) * int(cd8t.dict["migration"]))
+                    end_z = cd8t.zCOM + int((dz/distance) * int(cd8t.dict["migration"]))
+                    
+                    shift = self.compute_shift(cd8t, int(cd8t.dict["migration"]), (end_x, end_y, end_z))
+                    
+                    self.move_cell(cd8t, shift)
 
-
+               
 class TumourCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
         
     def start(self):
+        '''
+        Establish a random direction for the tumour cell to move in.
+        '''
 
         for tumour in self.cell_list_by_type(self.TUMOUR):
-            tumour.lambdaVecX = tumour_speed * uniform(-0.5,0.5)
-            tumour.lambdaVecY = tumour_speed * uniform(-0.5,0.5)
+            tumour.lambdaVecX = tumour_migration * uniform(-0.5,0.5)
+            tumour.lambdaVecY = tumour_migration * uniform(-0.5,0.5)
 
 
     def step(self, mcs):
+        '''
+        Move the tumour cell in a random direction at the tumour migration rate.
+        '''
         
-        if mcs % 10 == 0:
+        for tumour in self.cell_list_by_type(self.TUMOUR):
+            tumour.lambdaVecX = uniform(-0.5,0.5) * tumour_migration
+            tumour.lambdaVecY = uniform(-0.5,0.5) * tumour_migration
+            
+class CAFsMoveSteppable(SteppableBasePy):
+    def __init__(self, frequency=1):
+        SteppableBasePy.__init__(self, frequency)
+        
+    def start(self):
+        '''
+        Establish a random direction for the CAF to move in.
+        '''
 
-            for tumour in self.cell_list_by_type(self.TUMOUR):
-                tumour.lambdaVecX = uniform(-0.5,0.5) * tumour_speed
-                tumour.lambdaVecY = uniform(-0.5,0.5) * tumour_speed
+        for caf in list(self.cell_list_by_type(self.CAF)) + list(self.cell_list_by_type(self.MYCAF)):
+            caf.lambdaVecX = caf_migration * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_migration * uniform(-0.5,0.5)
+
+
+    def step(self, mcs):
+        '''
+        Move the CAF in a random direction at the CAF migration rate.
+        '''
+        
+        for caf in list(self.cell_list_by_type(self.CAF)) + list(self.cell_list_by_type(self.MYCAF)):
+            caf.lambdaVecX = caf_migration * uniform(-0.5,0.5)
+            caf.lambdaVecY = caf_migration * uniform(-0.5,0.5)
 
 
 ########################################     
 ## CLASSES FOR CALIBRATING PARAMETERS ##
 ########################################
     
-class CellSpeedTrackerSteppable(SteppableBasePy):
+class CellMigrationTrackerSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
         
-        # Initialize variables, arrays, and files for storing model outputs
-        
         self.step_counter = 0
-        self.tumour_speeds = []
-        self.caf_speeds = []
+        self.tumour_migrations = []
+        self.caf_migrations = []
         
         self.cd8t_file_path = None
         self.cd8t_file_path = None
@@ -573,97 +689,85 @@ class CellSpeedTrackerSteppable(SteppableBasePy):
     #'''    
     def start(self):
         
-        # Set up CSV files
+        # Set up CSV file
         output_dir = self.output_dir
-        self.cd8t_file_path = os.path.join(output_dir, "cd8t_speed.csv")
-        self.tumour_file_path = os.path.join(output_dir, "tumour_speed.csv")
-        self.caf_file_path = os.path.join(output_dir, "caf_speed.csv")
+        self.cd8t_file_path = os.path.join(output_dir, "cd8t_migration.csv")
+        self.tumour_file_path = os.path.join(output_dir, "tumour_migration.csv")
+        self.caf_file_path = os.path.join(output_dir, "caf_migration.csv")
         
         with open(self.cd8t_file_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["MCS", "force", "speed"])
+            writer.writerow(["MCS", "force", "migration"])
         f.close()
             
         with open(self.tumour_file_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["MCS", "speed"])
+            writer.writerow(["MCS", "migration"])
         f.close()
         
         with open(self.caf_file_path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["MCS", "speed"])
+            writer.writerow(["MCS", "migration"])
         f.close()
         
-        # Plot cd8t speed
-        self.plot_cd8t_speed = self.add_new_plot_window(title="CD8 T Speed",
+        # Plot cd8t migration
+        self.plot_cd8t_migration = self.add_new_plot_window(title="CD8 T migration",
                                                      x_axis_title='MonteCarlo Step (MCS)',
-                                                     y_axis_title='Speed per 10 MCS',
+                                                     y_axis_title='migration per 10 MCS',
                                                      x_scale_type='linear',
                                                      y_scale_type='linear',
                                                      grid=False,
                                                      config_options={'legend':True})
                                                      
-        self.plot_cd8t_speed.add_plot("CD8 T Speed",
+        self.plot_cd8t_migration.add_plot("CD8 T migration",
             style='Lines', color='lightsteelblue', size=5) 
         
     def step(self, mcs):
-        '''
-        Calculates average speed of each cell type.
         
-        Returns:
-            CSV file for each cell type with the speed of each cell as computed over 10 MCS.
-        '''
+        cd8t_migrations = []
         
-        cd8t_speeds = []
-        
-        #self.shared_steppable_vars["default_cd8t_speed"] += 100
-        #print(self.shared_steppable_vars["default_cd8t_speed"])
-        
-        # Track displacement every 10 MCS
-        
-        if self.step_counter != 0 and self.step_counter % 10 == 0:
-        
-            for cell in self.cell_list:
+        #default_cd8t_migration += 100
+        #print(default_cd8t_migration)
                 
-                dx = cell.xCOM - cell.dict["position_history"][0]
-                dy = cell.yCOM - cell.dict["position_history"][1]
-                dz = cell.zCOM - cell.dict["position_history"][2]
+        for cell in self.cell_list:
                 
-                displacement = math.sqrt(dx**2 + dy**2 + dz**2)
+            dx = cell.xCOM - cell.dict["position_history"][0]
+            dy = cell.yCOM - cell.dict["position_history"][1]
+            dz = cell.zCOM - cell.dict["position_history"][2]
+                
+            displacement = math.sqrt(dx**2 + dy**2 + dz**2)
                                                
-                cell.dict["position_history"][0] = cell.xCOM
-                cell.dict["position_history"][1] = cell.yCOM
-                cell.dict["position_history"][2] = cell.zCOM
+            cell.dict["position_history"][0] = cell.xCOM
+            cell.dict["position_history"][1] = cell.yCOM
+            cell.dict["position_history"][2] = cell.zCOM
                 
-                # Store displacement in CSV files
-                
-                if cell.type == self.TUMOUR:
-                    if displacement < 5: # Remove artifact outliers
-                        with open(self.tumour_file_path, "a", newline="") as f:
-                            writer = csv.writer(f)
-                            writer.writerow([mcs, (displacement/10)])
-                        f.close()
-                        self.tumour_speeds.append(displacement)                        
-                elif cell.type == self.CAF or cell.type == self.MYCAF:
-                    with open(self.caf_file_path, "a", newline="") as f:
+            if cell.type == self.TUMOUR:
+                if displacement < 5: # Remove artifact outliers
+                    with open(self.tumour_file_path, "a", newline="") as f:
                         writer = csv.writer(f)
-                        writer.writerow([mcs, (displacement/10)])
+                        writer.writerow([mcs, (displacement)])
                     f.close()
-                    self.caf_speeds.append(displacement)
-                elif cell.type == self.CD8T:
-                    with open(self.cd8t_file_path, "a", newline="") as f:
-                        writer = csv.writer(f)
-                        writer.writerow([mcs, cell.dict["force"], (displacement/10)])
-                    f.close()
-                    cd8t_speeds.append(displacement)
+                    self.tumour_migrations.append(displacement)                        
+            elif cell.type == self.CAF or cell.type == self.MYCAF:
+                with open(self.caf_file_path, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([mcs, (displacement)])
+                f.close()
+                self.caf_migrations.append(displacement)
+            elif cell.type == self.CD8T:
+                with open(self.cd8t_file_path, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([mcs, cell.dict["migration"], (displacement)])
+                f.close()
+                cd8t_migrations.append(displacement)
                     
                                     
-            # Plot
+        # Plot
                 
-            if len(cd8t_speeds) != 0:
-                self.plot_cd8t_speed.add_data_point("CD8 T Speed", mcs, sum(cd8t_speeds)/(len(cd8t_speeds)*10))
-            else:
-                self.plot_cd8t_speed.add_data_point("CD8 T Speed", mcs, 0)
+        if len(cd8t_migrations) != 0:
+            self.plot_cd8t_migration.add_data_point("CD8 T migration", mcs, sum(cd8t_migrations)/(len(cd8t_migrations)*10))
+        else:
+            self.plot_cd8t_migration.add_data_point("CD8 T migration", mcs, 0)
         
         self.step_counter += 1
     #'''
@@ -675,8 +779,9 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
         self.file_path = None
         
     def start(self):
-        
-        # Set up CSV file
+        '''
+        Set up CSV file for tracking CD8 T kill attempts.
+        '''
         
         output_dir = self.output_dir
         self.file_path = os.path.join(output_dir, "cd8t_kill_attempts.csv")
@@ -687,7 +792,7 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
         
     def finish(self):
         '''
-        Calculates average rate of kill attempts by CD8 T cells.
+        Calculate average rate of kill attempts by CD8 T cells.
         
         Returns:
             CSV file with the total number of kill attempts, lifespan, and kill rate per MCS of each CD8 T cell.
@@ -717,7 +822,7 @@ class OutputCSVSteppable(SteppableBasePy):
         
     def start(self): 
         '''
-        Computes model outputs.
+        Compute model outputs.
         
         Returns:
             CSV file for live and dead counts of each cell type over time.
