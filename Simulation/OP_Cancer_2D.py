@@ -5,7 +5,8 @@ def configure_simulation():
     
     # Open file
     
-    parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" 
+    #parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" # On DRAC
+    parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" # On local
 
     # Read parameters
 
@@ -45,7 +46,7 @@ def configure_simulation():
     
     
     PottsElmnt=CompuCell3DElmnt.ElementCC3D("Potts")
-    PottsElmnt.ElementCC3D("Dimensions",{"x":"800","y":"1420","z":"1"})
+    PottsElmnt.ElementCC3D("Dimensions",{"x":"100","y":"100","z":"1"}) # 800 x 1420
     PottsElmnt.ElementCC3D("Steps",{},"500")
     PottsElmnt.ElementCC3D("Temperature",{},"3")
     PottsElmnt.ElementCC3D("NeighborOrder",{},"3")
@@ -81,7 +82,7 @@ def configure_simulation():
     PluginElmnt_1.ElementCC3D("Energy",{"Type1":"CD8T","Type2":"CD8T"},"10.0")
     PluginElmnt_1.ElementCC3D("Energy",{"Type1":"CD8T","Type2":"myCAF"},"10.0")
     PluginElmnt_1.ElementCC3D("Energy",{"Type1":"myCAF","Type2":"myCAF"},"10.0")
-    PluginElmnt_1.ElementCC3D("NeighborOrder",{},"3")
+    PluginElmnt_1.ElementCC3D("NeighborOrder",{},"1")
     
     
     PluginElmnt_2=CompuCell3DElmnt.ElementCC3D("Plugin",{"Name":"FocalPointPlasticity"})
@@ -181,8 +182,8 @@ def configure_simulation():
     PluginElmnt_3.ElementCC3D("Penalty",{"Type":"CD8T"},"1000000")
     
     
-    SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE_OpenCL"})
-    #SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE"})
+    #SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE_OpenCL"})
+    SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE"})
     
     
     DiffusionFieldElmnt=SteppableElmnt.ElementCC3D("DiffusionField",{"Name":"IFN_gamma"})
@@ -268,7 +269,15 @@ from OP_Cancer_2DSteppables import HelperFunctionsSteppable
 CompuCellSetup.register_steppable(steppable=HelperFunctionsSteppable(frequency=1))          
 
 from OP_Cancer_2DSteppables import InitializeCellPositionSteppable
-CompuCellSetup.register_steppable(steppable=InitializeCellPositionSteppable(frequency=1))          
+CompuCellSetup.register_steppable(steppable=InitializeCellPositionSteppable(frequency=1))
+
+
+#################################
+## CLASSES FOR OUTPUTTING DATA ##
+#################################
+
+from OP_Cancer_2DSteppables import OutputCSVSteppable
+CompuCellSetup.register_steppable(steppable=OutputCSVSteppable(frequency=1))
 
 
 ##################################
@@ -324,15 +333,7 @@ from OP_Cancer_2DSteppables import CD8TKillAttemptsTrackerSteppable
 CompuCellSetup.register_steppable(steppable=CD8TKillAttemptsTrackerSteppable(frequency=1))
 
 
-#################################
-## CLASSES FOR OUTPUTTING DATA ##
-#################################
 
-from OP_Cancer_2DSteppables import OutputCSVSteppable
-CompuCellSetup.register_steppable(steppable=OutputCSVSteppable(frequency=1))
-
-from OP_Cancer_2DSteppables import PlotsSteppable
-CompuCellSetup.register_steppable(steppable=PlotsSteppable(frequency=1))
 
 
 
