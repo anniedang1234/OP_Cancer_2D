@@ -15,7 +15,7 @@ from scipy.spatial import KDTree
 ######################
 
 # Open files
-
+'''
 parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" 
 cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\patient28_truncated_normalized_filtered.csv" # On local PC
 
@@ -23,7 +23,7 @@ cell_position_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\patient28_truncated_
 # On DRAC
 parameters_file = r"/home/annied/OP_Cancer_2D/parameters.csv"
 cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_edited.csv" 
-'''
+
 
 # Read parameters
 
@@ -140,16 +140,17 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         
         dims = self.cellField.getDim()
         
+        '''
         # Seed cells randomly
         total_cell_count = 15
 
-        tumour_proportion = 0.6
+        tumour_proportion = 0.5
         caf_proportion = 0.1
-        cd8t_proportion = 0.3
+        cd8t_proportion = 0.4
 
-        tumour_cd274_proportion = 0.07119
-        caf_cd274_proportion = 0.11358
-        cd8t_cd274_proportion = 0.08830
+        tumour_cd274_proportion = 1
+        caf_cd274_proportion = 1
+        cd8t_cd274_proportion = 1
         
         dims = self.cellField.getDim()
                
@@ -215,7 +216,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
         #'''
 
         
-        '''
+        
         # Seed cells based on csv file
         
         with open(cell_position_file, newline='') as f:
@@ -260,7 +261,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                 
                 # Spawn cell
                 self.helper_func.update_lattice_sites(x, y, z, self.cellField, cell.targetVolume, cell)
-        '''        
+               
         
 
 #################################
@@ -477,6 +478,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                 cells_to_delete.append(tumour)
                 continue
             
+            '''
             # CHECK 1: if neighbouring CD8 T cell
             cd8t = None
             
@@ -502,9 +504,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                         # Else, immune escape and CD8 T exhaustion occurs
                         else:
                             cd8t.dict["exhaustion_counter"] = exhaustion_threshold
-                        
-                        break    
-                        
+            '''                                    
                     
             # CHECK 2: if CD274 expression is induced
             if self.field.IFN_gamma[int(tumour.xCOM), int(tumour.yCOM), int(tumour.zCOM)] > tumour_ifn_pdl1_threshold:
@@ -656,6 +656,7 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
 class CD8TCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
+        self.helper_func = HelperFunctionsSteppable()
         
     def can_shift(self, cell, shift):
         '''
@@ -709,13 +710,13 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
         
         dest_x = x0; dest_y = y0; dest_z = z0
         
-        for i in range (1, int(distance)):
+        for i in range (1, int(distance) + 1):
             t = i / distance
-            x = int(round(x0 + (x1 - x0) * t))
-            y = int(round(y0 + (y1 - y0) * t))
-            z = int(round(z0 + (z1 - z0) * t))
+            x = int(x0 + (x1 - x0) * t)
+            y = int(y0 + (y1 - y0) * t)
+            z = int(z0 + (z1 - z0) * t)
             
-            shift = (int(round(x - x0)), int(round(dest_y - y0)), int(round(dest_z - z0)))
+            shift = (int(round(x - x0)), int(round(y - y0)), int(round(z - z0)))
         
             if self.can_shift(cell, shift):
                 dest_x = x; dest_y = y; dest_z = z
@@ -723,13 +724,43 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
                 break
                 
         return (int(round(dest_x - x0)), int(round(dest_y - y0)), int(round(dest_z - z0)))
-
-        
-    
+    '''
     def step(self, mcs):
-        '''
-        Find the tumour cell nearest to each CD8 T cell and move the CD8 T cell in that direction at the appropriate migration rate.
-        '''
+        tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
+        if len(tumour_cells) == 0:
+            return
+
+        tumour_positions = [(tumour.xCOM, tumour.yCOM, tumour.zCOM) for tumour in tumour_cells]
+        tumour_tree = KDTree(tumour_positions)
+
+        for cd8t in self.cell_list_by_type(self.CD8T):
+            distance, index = tumour_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
+            nearest_tumour = tumour_cells[index]
+
+            self.shared_steppable_vars["cd8t_tumour_dist_list"].append(distance)
+
+            if distance <= 0:
+                continue
+
+            if distance <= cd8t.dict["migration"]:
+                target = (nearest_tumour.xCOM, nearest_tumour.yCOM, nearest_tumour.zCOM)
+                shift = self.compute_shift(cd8t, distance, target)
+            else:
+                dx = nearest_tumour.xCOM - cd8t.xCOM
+                dy = nearest_tumour.yCOM - cd8t.yCOM
+                dz = nearest_tumour.zCOM - cd8t.zCOM
+
+                end_x = cd8t.xCOM + int((dx / distance) * cd8t.dict["migration"])
+                end_y = cd8t.yCOM + int((dy / distance) * cd8t.dict["migration"])
+                end_z = cd8t.zCOM + int((dz / distance) * cd8t.dict["migration"])
+
+                shift = self.compute_shift(cd8t, cd8t.dict["migration"], (end_x, end_y, end_z))
+
+            self.move_cell(cd8t, shift)
+        
+    '''
+    def step(self, mcs):
+        
                  
         tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
         
@@ -740,6 +771,7 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
         tumour_tree = KDTree(tumour_positions)
         
         tumours_to_kill = []
+        cells_to_delete = []
          
         for cd8t in self.cell_list_by_type(self.CD8T):
             
@@ -752,10 +784,12 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
                                               
                 # Shift
                 if distance <= int(cd8t.dict["migration"]):
-                    if nearest_tumour not in tumours_to_kill:
+                    if nearest_tumour not in tumours_to_kill and nearest_tumour not in cells_to_delete:
                         tumours_to_kill.append(nearest_tumour)
                         shift = self.compute_shift(cd8t, distance, (nearest_tumour.xCOM, nearest_tumour.yCOM, nearest_tumour.zCOM))
                         self.move_cell(cd8t, shift)
+                    else:
+                        print("Avoid CD8 T cell collision")
                 else:
                     
                     dx = nearest_tumour.xCOM - cd8t.xCOM
@@ -768,9 +802,42 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
                     
                     shift = self.compute_shift(cd8t, int(cd8t.dict["migration"]), (end_x, end_y, end_z))
                     
-                    self.move_cell(cd8t, shift)
-        
-               
+                    if abs(shift[0] - dx) <= 3 and abs(shift[1] - dy) <=3 and abs(shift[2] - dz) <=3:
+                        if nearest_tumour not in tumours_to_kill  and nearest_tumour not in cells_to_delete:
+                            tumours_to_kill.append(nearest_tumour)
+                            self.move_cell(cd8t, shift)
+                        else:
+                            print("Avoid CD8 T cell collision")
+                    else:
+                        self.move_cell(cd8t, shift)  
+                        
+            for neighbor, common_surface_area in self.get_cell_neighbor_data_list(cd8t):
+                if neighbor:
+                    if neighbor.type == self.TUMOUR:
+
+                        tumour = neighbor
+                        
+                        # CD8 T cell secretes IFN gamma
+                        self.helper_func.update_lattice_sites(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM, self.field.IFN_gamma,
+                            tumour.targetVolume, cd8t_ifn_secretion)
+                        
+                        # Track CD8 T kills
+                        self.shared_steppable_vars["cd8t_kill_attempts"] += 1
+                        self.shared_steppable_vars["cd8t_kill_attempts_set"][cd8t.id][0] += 1
+                        
+                        # Check if CD8 T cell successfully kills tumour cell:
+                        if (cd8t.dict["CD274?"] == False or tumour.dict["CD274?"] == False) and cd8t.dict["exhaustion_counter"] < exhaustion_threshold:
+                            cd8t.dict["exhaustion_counter"] += 1
+                            self.shared_steppable_vars["cd8t_successful_kills"] += 1
+                            cells_to_delete.append(tumour)
+                            continue
+                        # Else, immune escape and CD8 T exhaustion occurs
+                        else:
+                            cd8t.dict["exhaustion_counter"] = exhaustion_threshold
+                  
+        for cell in cells_to_delete:
+            self.delete_cell(cell)
+    #'''           
 class TumourCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)

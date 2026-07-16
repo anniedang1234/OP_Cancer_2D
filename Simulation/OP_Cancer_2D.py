@@ -5,8 +5,8 @@ def configure_simulation():
     
     # Open file
     
-    #parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" # On DRAC
-    parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" # On local
+    parameters_file = r"/home/annied/OP_Cancer_2D/parameters.csv" # On DRAC
+    #parameters_file = r"C:\CompuCell3D\Projects\OP_Cancer_2D\parameters.csv" # On local
 
     # Read parameters
 
@@ -39,15 +39,15 @@ def configure_simulation():
     CompuCell3DElmnt=ElementCC3D("CompuCell3D",{"Revision":"5","Version":"4.7.0"})
     
     MetadataElmnt=CompuCell3DElmnt.ElementCC3D("Metadata")
-    MetadataElmnt.ElementCC3D("NumberOfProcessors",{},"8")
+    MetadataElmnt.ElementCC3D("NumberOfProcessors",{},"2")
     MetadataElmnt.ElementCC3D("DebugOutputFrequency",{},"10")
     MetadataElmnt.ElementCC3D("MCSConversionFactor",{"DisplayName":"No conversion","Units":"-"},"1.0")
     MetadataElmnt.ElementCC3D("VoxelConversionFactor",{"DisplayName":"No conversion","Units":"-"},"1.0")
     
     
     PottsElmnt=CompuCell3DElmnt.ElementCC3D("Potts")
-    PottsElmnt.ElementCC3D("Dimensions",{"x":"100","y":"100","z":"1"}) # 800 x 1420
-    PottsElmnt.ElementCC3D("Steps",{},"500")
+    PottsElmnt.ElementCC3D("Dimensions",{"x":"800","y":"1420","z":"1"}) # 800 x 1420
+    PottsElmnt.ElementCC3D("Steps",{},"100")
     PottsElmnt.ElementCC3D("Temperature",{},"3")
     PottsElmnt.ElementCC3D("NeighborOrder",{},"3")
     
@@ -182,8 +182,8 @@ def configure_simulation():
     PluginElmnt_3.ElementCC3D("Penalty",{"Type":"CD8T"},"1000000")
     
     
-    #SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE_OpenCL"})
-    SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE"})
+    SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE_OpenCL"})
+    #SteppableElmnt=CompuCell3DElmnt.ElementCC3D("Steppable",{"Type":"DiffusionSolverFE"})
     
     
     DiffusionFieldElmnt=SteppableElmnt.ElementCC3D("DiffusionField",{"Name":"IFN_gamma"})
