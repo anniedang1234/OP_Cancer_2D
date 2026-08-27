@@ -1,7 +1,7 @@
 # Oropharyngeal Cancer Agent-Based Model
 This agent-based model (ABM) models oropharyngeal cancer using patient spatial transcritomics data on CompuCell3D.
 
-# Installing CompuCell3D
+## Installing CompuCell3D
 To run this model, please first install CompuCell3D. 
 To install CompuCell3D on DRAC, from a login node:
 ```bash
@@ -23,7 +23,7 @@ setrpaths --path ~/libroadrunner-2.9.2-cp311-cp311-linux_x86_64.whl --any_interp
 pip install lxml deprecated ~/libroadrunner-2.9.2-cp311-cp311-linux_x86_64.whl 
 pip freeze --local > ~/compucell3d.reqs
 ```
-# Running the Model
+## Running the Model
 To run the model on DRAC, include the following in your slurm script:
 ```bash
 module load python/3.11 vtk/9.4 cuda/12.6
@@ -39,3 +39,5 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 python -X faulthandler -m cc3d.run_script -i output_directory/OP_Cancer_2D/OP_Cancer_2D.cc3d -f 10 -o output_directory>
 ```
+## Supplemental Information
+process_data.py was used to clean up the initial patient spatial transcriptomics data for the model.
