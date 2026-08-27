@@ -40,4 +40,4 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 python -X faulthandler -m cc3d.run_script -i output_directory/OP_Cancer_2D/OP_Cancer_2D.cc3d -f 10 -o output_directory>
 ```
 ## Supplemental Information
-process_data.py was used to clean up the initial patient spatial transcriptomics data for the model.
+process_data.py was used to clean up the initial patient spatial transcriptomics data for the model. This script was used to produce patient_filtered_edited.csv, which contains the cell positions and gene expression.
