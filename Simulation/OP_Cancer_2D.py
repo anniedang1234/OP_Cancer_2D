@@ -2,10 +2,13 @@
 def configure_simulation():
     
     import csv
+    import os
     
+
     # Open file
-    
-    parameters_file = r"/home/annied/OP_Cancer_2D/parameters.csv"
+
+    cwd = os.getcwd()
+    parameters_file = os.path.join(cwd, "OP_Cancer_2D/parameters.csv")
 
     # Read parameters
 
@@ -47,10 +50,12 @@ def configure_simulation():
     
     # Basic properties of CPM (GGH) algorithm
     PottsElmnt=CompuCell3DElmnt.ElementCC3D("Potts")
-    PottsElmnt.ElementCC3D("Dimensions",{"x":"800","y":"1420","z":"1"})
-    PottsElmnt.ElementCC3D("Steps",{},"2520")
+    PottsElmnt.ElementCC3D("Dimensions",{"x":"970","y":"1690","z":"1"})
+    PottsElmnt.ElementCC3D("Steps",{},"4801")
     PottsElmnt.ElementCC3D("Temperature",{},"3")
     PottsElmnt.ElementCC3D("NeighborOrder",{},"3")
+    
+    # PLUGINS
     
     # Cell types
     PluginElmnt=CompuCell3DElmnt.ElementCC3D("Plugin",{"Name":"CellType"})
@@ -259,6 +264,7 @@ from cc3d import CompuCellSetup
 
 configure_simulation()            
 
+# STEPPABLES
 
 ##############################
 ## CLASSES FOR INITIALIZING ##
@@ -283,9 +289,6 @@ CompuCellSetup.register_steppable(steppable=OutputCSVSteppable(frequency=1))
 ## CLASSES FOR BASIC MECHANISMS ##
 ##################################   
 
-
-from OP_Cancer_2DSteppables import GrowthSteppable
-CompuCellSetup.register_steppable(steppable=GrowthSteppable(frequency=1))
 
 from OP_Cancer_2DSteppables import MitosisSteppable
 CompuCellSetup.register_steppable(steppable=MitosisSteppable(frequency=1))
