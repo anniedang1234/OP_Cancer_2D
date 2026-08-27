@@ -1,0 +1,26 @@
+Parameter name,Parameter value
+IFN-gamma diffusion,1192.5
+IFN-gamma decay,0.0077
+IFN-gamma initial concentration,2.16E-10
+TGF-beta diffusion,1100
+TGF-beta decay,0.00144
+Active TGF-beta concentration,6.23E-08
+Collagen initial concentration,0.256
+Tumour volume,6.8975
+CAF volume,9.3025
+CD8 T volume,5.5375
+Tumour proliferation rate,0.000025
+CAF proliferation rate,0.0004857
+Tumour apoptosis rate,0.00007601
+CAF apoptosis rate,0
+CD8 T apoptosis rate,0.00032
+Tumour migration rate,700
+CAF migration rate,150
+CD8 T migration rate,6.57
+IFN-gamma secretion by CD8 T,0.001307
+TGF-beta secretion by tumour,0.000000004
+Collagen secretion by CAF,62.3
+TGF-beta secretion by CAF,0.000003039
+CD8 T kill threshold until exhaustion,17.5
+PDL1 expression in tumour IFN-gamma threshold,0.00000064
+PDL1 expression in CAF IFN-gamma threshold,3.20E-08
