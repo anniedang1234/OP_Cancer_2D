@@ -24,6 +24,7 @@ pip install lxml deprecated ~/libroadrunner-2.9.2-cp311-cp311-linux_x86_64.whl
 pip freeze --local > ~/compucell3d.reqs
 ```
 # Running the Model
+To run the model on DRAC, include the following in your slurm script:
 ```bash
 module load python/3.11 vtk/9.4 cuda/12.6
 
