@@ -16,8 +16,9 @@ from scipy.spatial import KDTree
 
 # Open files
 
-parameters_file = r"/home/annied/OP_Cancer_2D/parameters.csv"
-cell_position_file = r"/home/annied/OP_Cancer_2D/patient28_edited.csv" 
+cwd = os.getcwd()
+parameters_file = os.path.join(cwd, "OP_Cancer_2D/parameters.csv")
+cell_position_file = os.path.join(cwd, "OP_Cancer_2D/patient28_filtered_edited.csv")
 
 # Read parameters
 
@@ -37,11 +38,11 @@ with open(parameters_file, newline='') as f:
         elif i == 12:
             caf_prolif = float(line[1])
         elif i == 13:
-            tumour_apoptosis_prob = float(line[1])
+            tumour_apoptosis_prob = 0
         elif i == 14:
-            caf_apoptosis_prob = float(line[1])
+            caf_apoptosis_prob = 0
         elif i == 15:
-            cd8t_apoptosis_prob = float(line[1])
+            cd8t_apoptosis_prob = 0
         elif i == 16:
             tumour_migration = float(line[1])
         elif i == 17:
@@ -68,8 +69,8 @@ f.close()
 # Set established parameters (will not change)
 
 tumour_lambda_vol = 50 
-caf_lambda_vol = 100
-cd8t_lambda_vol = 100
+caf_lambda_vol = 50
+cd8t_lambda_vol = 50
 
 
 ##############################
@@ -154,7 +155,7 @@ class InitializeCellPositionSteppable(SteppableBasePy):
                 cell_type_str = row["leiden_r06"]
                 if cell_type_str == "CAF":
                     cell = self.newCell(self.CAF)
-                    cell.targetVolume = random.uniform(0.25, 1.75) * caf_vol
+                    cell.targetVolume = random.uniform(0.5,1.5) * caf_vol
                     cell.lambdaVolume = caf_lambda_vol
                 elif cell_type_str == "Tumour epithelial" or cell_type_str == "Tumour epithelial (proliferative)":
                     cell = self.newCell(self.TUMOUR)
@@ -222,6 +223,76 @@ class OutputCSVSteppable(SteppableBasePy):
         self.shared_steppable_vars["cd8t_kill_attempts"] = 0
         self.shared_steppable_vars["cd8t_successful_kills"] = 0
         self.shared_steppable_vars["cd8t_apoptosis"] = 0
+        
+        # Compute initial lists of variables
+        
+        # Local CD8 T density
+        cd8t_cells = list(self.cell_list_by_type(self.CD8T)) 
+        
+        if len(cd8t_cells) != 0:      
+            cd8t_positions = [(cd8t.xCOM, cd8t.yCOM, cd8t.zCOM) for cd8t in cd8t_cells]
+            cd8t_tree = KDTree(cd8t_positions)
+            
+        # Local CAF density
+        cafs = list(self.cell_list_by_type(self.CAF)) + list(self.cell_list_by_type(self.MYCAF))
+        
+        if len(cafs) != 0:      
+            caf_positions = [(caf.xCOM, caf.yCOM, caf.zCOM) for caf in cafs]
+            caf_tree = KDTree(caf_positions)
+        
+        
+        for i, tumour in enumerate(self.cell_list_by_type(self.TUMOUR)):
+            
+            # Local CD8 T density
+            if len(cd8t_cells) == 0:
+                self.shared_steppable_vars["cd8t_density_list"].append(0)
+            else:
+                indices = cd8t_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=10)
+                self.shared_steppable_vars["cd8t_density_list"].append(len(indices))
+                
+            # Local CAF density
+            if len(cafs) == 0:
+                self.shared_steppable_vars["caf_density_list"].append(0)
+            else:
+                indices = caf_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=10)
+                self.shared_steppable_vars["caf_density_list"].append(len(indices))
+                
+        # Mean Nearest CD8 T Tumour Distance
+                
+        tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
+        
+        if len(tumour_cells) == 0:
+            return
+        
+        tumour_positions = [(tumour.xCOM, tumour.yCOM, tumour.zCOM) for tumour in tumour_cells ]
+        tumour_tree = KDTree(tumour_positions)
+        
+        tumours_to_kill = []
+        cell_ids_to_delete = set()
+         
+        for cd8t in self.cell_list_by_type(self.CD8T):
+            
+            distance, index = tumour_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
+            nearest_tumour = tumour_cells[index]
+                        
+            self.shared_steppable_vars["cd8t_tumour_dist_list"].append(distance)
+            
+        # Mean Nearest CD8 T CAF Distance
+        
+        cafs = list(self.cell_list_by_type(self.CAF)) + list(self.cell_list_by_type(self.MYCAF))
+        
+        if len(cafs) != 0:      
+            caf_positions = [(caf.xCOM, caf.yCOM, caf.zCOM) for caf in cafs]
+            caf_tree = KDTree(caf_positions)
+        
+        for cd8t in self.cell_list_by_type(self.CD8T):
+            
+            # Compute mean nearest distance between CD8 T cells & CAFs
+            
+            if len(cafs) != 0:
+                 
+                distance, index = caf_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
+                self.shared_steppable_vars["cd8t_caf_dist_list"].append(distance)
               
                
         # Set up CSV file
@@ -240,10 +311,6 @@ class OutputCSVSteppable(SteppableBasePy):
         f.close()
             
     def step(self, mcs):
-        
-        # Skip first MCS
-        if mcs == 0:
-            return
         
         # CALCULATE VARIABLES
         
@@ -313,23 +380,6 @@ class OutputCSVSteppable(SteppableBasePy):
 ##################################
 ## CLASSES FOR BASIC MECHANISMS ##
 ##################################  
-
-        
-class GrowthSteppable(SteppableBasePy):
-    def __init__(self, frequency=1):
-        SteppableBasePy.__init__(self, frequency)
-
-    def step(self, mcs):
-        '''
-        Increment cell size based on growth rate.
-        '''
-        
-        for cell in self.cell_list:
-            if cell.type == self.TUMOUR: # Tumour cells
-                cell.targetVolume *= 1 + tumour_prolif
-            elif cell.type == self.CAF or cell.type == self.MYCAF:
-                cell.targetVolume *= 1 + caf_prolif    
-
         
 class MitosisSteppable(MitosisSteppableBase):
     def __init__(self, frequency=1):
@@ -337,22 +387,22 @@ class MitosisSteppable(MitosisSteppableBase):
 
     def step(self, mcs):
         '''
-        Perform mitosis when cell volume is equal to or greater than 2 times its default size.
+        A proportion of cells perform mitosis and divide.
         '''
 
         cells_to_divide=[]
         for cell in self.cell_list:
             if cell.type == self.TUMOUR:
-                if cell.volume >= 2*tumour_vol:
+                if random.random() < tumour_prolif:
                     self.shared_steppable_vars["tumour_divisions"] += 1
                     cells_to_divide.append(cell)
             elif cell.type == self.CAF or cell.type == self.MYCAF:
-                if cell.volume >= 2*caf_vol:
+                if random.random() < caf_prolif:
                     self.shared_steppable_vars["caf_divisions"] += 1
                     cells_to_divide.append(cell)
 
         for cell in cells_to_divide:
-            self.divide_cell_random_orientation(cell)
+            self.divide_cell_random_orientation(cell)        
 
 
     def update_attributes(self):
@@ -360,7 +410,6 @@ class MitosisSteppable(MitosisSteppableBase):
         Initialize attributes of child cells.
         '''
         
-        self.parent_cell.targetVolume /= 2.0
         self.clone_parent_2_child()
         
         # Initialize cell type
@@ -432,7 +481,7 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
                 self.shared_steppable_vars["caf_density_list"].append(len(indices))
             
             # Baseline apoptosis
-            if random.random() <= tumour_apoptosis_prob:
+            if random.random() < tumour_apoptosis_prob:
                 self.shared_steppable_vars["tumour_apoptosis"] += 1
                 cells_to_delete.append(tumour)
                 continue
@@ -462,22 +511,22 @@ class UpdateCAFsSteppable(SteppableBasePy):
         '''
         
         # Baseline apoptosis
-        if random.random() <= caf_apoptosis_prob:
+        if random.random() < caf_apoptosis_prob:
             cells_to_delete.append(caf)
             return
         
-        # CHECK 2: if neighbouring CD8 T cells
+        # Check if neighbouring CD8 T cells
         cd8t = None
         
         for neighbor, common_surface_area in self.get_cell_neighbor_data_list(caf):
             if neighbor:
                 if neighbor.type == self.CD8T:
                     cd8t = neighbor
-                    # Check if CD8 T celle exhaustion occurs
+                    # Check if CD8 T cell exhaustion occurs
                     if cd8t.dict["CD274?"] == True and caf.dict["CD274?"] == True:
                         cd8t.dict["exhaustion_threshold"] = exhaustion_threshold
         
-        # CHECK 3: if CD274 expression is induced
+        # Check if CD274 expression is induced
         if caf.dict["CD274?"] == False and self.field.IFN_gamma[caf.xCOM, caf.yCOM, caf.zCOM] > caf_ifn_pdl1_threshold:
             caf.dict["CD274?"] = True
         
@@ -490,14 +539,14 @@ class UpdateCAFsSteppable(SteppableBasePy):
         
         for caf in self.cell_list_by_type(self.CAF):
             
-            # CHECK 2 & 3
+            # Check for apoptosis, neighbouring CD8 T cells, and CD274 expression
             self.all_cafs_checks(caf, cells_to_delete)
             
             
-            # CHECK 4: if myCAF phenotype induced
+            # Check if myCAF phenotype induced
             tgf = self.field.TGF_beta[caf.xCOM, caf.yCOM, caf.zCOM]
 
-            x1 = -0.00000000002*(tgf**2) + 449882*tgf + 0.1084
+            x1 = -0.00000000007*(tgf**2) + 878675*tgf + 0.1084
             x2 = 1 - x1
             
             if x2 <= 0:
@@ -505,7 +554,7 @@ class UpdateCAFsSteppable(SteppableBasePy):
             else:
               prob = 1 - x2 ** (1/2160)
             
-            if random.random() <= prob:                    
+            if random.random() < prob:                    
                 caf.type = self.MYCAF
                 
             # Secrete TGF-beta
@@ -518,7 +567,7 @@ class UpdateCAFsSteppable(SteppableBasePy):
             self.helper_func.update_lattice_sites(mycaf.xCOM, mycaf.yCOM, mycaf.zCOM, self.field.Collagen,
                 mycaf.targetVolume, collagen_secretion)
             
-            # CHECK 2 & 3
+            # Check for apoptosis, neighbouring CD8 T cells, and CD274 expression
             self.all_cafs_checks(mycaf, cells_to_delete)
             
             # Secrete TGF-beta
@@ -559,13 +608,10 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
                 self.shared_steppable_vars["cd8t_caf_dist_list"].append(distance)
                        
             # Apoptosis rate
-            if random.random() <= cd8t_apoptosis_prob:
+            if random.random() < cd8t_apoptosis_prob:
                 self.shared_steppable_vars["cd8t_apoptosis"] += 1
                 cells_to_delete.append(cd8t)
                 continue
-                
-            # Check 1 done in UpdateTumourCellsSteppable and UpdateCAFsSteppable
-            # Check 2 done in UpdateTumourCellsSteppable
                 
             # CD8 T cell migration is affected by collagen density           
             collagen = int(self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM])
@@ -573,10 +619,10 @@ class UpdateCD8TCellsSteppable(SteppableBasePy):
             cd8t.dict["migration"] = default_cd8t_migration
             
                         
-            collagen = self.field.Collagen[cd8t.xCOM, cd8t.yCOM, cd8t.zCOM]
-            if collagen <= 6.66034:
-                cd8t.dict["migration"] = -1.1376 * collagen + 7.5768
-            else:
+            cd8t.dict["migration"] = -10.828 * collagen + 9.3420
+            
+            # Speed cannot be less than zero
+            if cd8t.dict["migration"] < 0:
                 cd8t.dict["migration"] = 0
             
         # Delete CD8 T cells marked for apoptosis 
@@ -617,16 +663,7 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
             if occupant is not None and occupant.id != cell.id:
                 return False
         
-        # extra buffer only against same-type cells
-        '''
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < dims.x and 0 <= ny < dims.y:
-                    neighbor = self.cell_field[nx, ny, z]
-                    if neighbor is not None and neighbor.type == cell.type and neighbor.id != cell.id:
-                        return False
-        '''
+
         return True
 
         
@@ -667,8 +704,11 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
 
 
     def step(self, mcs):
+        '''
+        CD8 T cells attempt to move.
+        '''
         
-                 
+        # Build a tree of all tumour cell positions in order to locate nearest tumour cell to each CD8 T cell        
         tumour_cells = list(self.cell_list_by_type(self.TUMOUR))
         
         if len(tumour_cells) == 0:
@@ -677,26 +717,30 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
         tumour_positions = [(tumour.xCOM, tumour.yCOM, tumour.zCOM) for tumour in tumour_cells ]
         tumour_tree = KDTree(tumour_positions)
         
-        tumours_to_kill = []
-        cell_ids_to_delete = set()
+        tumours_to_kill = [] # List of all tumour cells CD8 T cells are on track to kill, to prevent multiple CD8 T cells from attempting to kill the same tumour cell (causes the program to crash)
+        cell_ids_to_delete = set() # Set of all tumour cells CD8 T cells actually kill in this MCS
          
         for cd8t in self.cell_list_by_type(self.CD8T):
             
+            # Find nearest tumour
             distance, index = tumour_tree.query((cd8t.xCOM, cd8t.yCOM, cd8t.zCOM))
             nearest_tumour = tumour_cells[index]
                         
             self.shared_steppable_vars["cd8t_tumour_dist_list"].append(distance) # Track outputs
-                                
+            
+            # If the CD8 T cell is not already at the position of the tumour cell, move towards it                    
             if distance > 0:     
                                               
                 # Shift
+                
+                # If the tumour is within the distance a CD8 T cell can move in 1 MCS, move to its position immediately
                 if distance <= int(cd8t.dict["migration"]):
                     if nearest_tumour not in tumours_to_kill and nearest_tumour.id not in cell_ids_to_delete:
                         tumours_to_kill.append(nearest_tumour)
                         shift = self.compute_shift(cd8t, distance, (nearest_tumour.xCOM, nearest_tumour.yCOM, nearest_tumour.zCOM))
                         self.move_cell(cd8t, shift)
-                    else:
-                        print("Avoid CD8 T cell collision")
+                
+                # Else, move as close to the tumour cell as possible, given the CD8 T cell's speed
                 else:
                     
                     dx = nearest_tumour.xCOM - cd8t.xCOM
@@ -709,15 +753,17 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
                     
                     shift = self.compute_shift(cd8t, int(cd8t.dict["migration"]), (end_x, end_y, end_z))
                     
+                    # Prevent multiple CD8 T cells from performing a kill attempt on the same tumour cell (causes program to crash)
+                    
                     if abs(shift[0] - dx) <= 3 and abs(shift[1] - dy) <=3 and abs(shift[2] - dz) <=3:
                         if nearest_tumour not in tumours_to_kill  and nearest_tumour.id not in cell_ids_to_delete:
                             tumours_to_kill.append(nearest_tumour)
                             self.move_cell(cd8t, shift)
-                        else:
-                            print("Avoid CD8 T cell collision")
+
                     else:
                         self.move_cell(cd8t, shift)  
-                        
+            
+            # After moving, check if the CD8 T cell is now in contact with any tumour cells. If so, attempt a kill.            
             for neighbor, common_surface_area in self.get_cell_neighbor_data_list(cd8t):
                 if neighbor:
                     if neighbor.type == self.TUMOUR:
@@ -741,14 +787,16 @@ class CD8TCellsMoveSteppable(SteppableBasePy):
                         # Else, immune escape and CD8 T exhaustion occurs
                         else:
                             cd8t.dict["exhaustion_counter"] = exhaustion_threshold
-                  
+                            
+                        break # Each CD8 T cell can only kill one tumour cell per step
+        
+        # Delete tumour cells that have been killed          
         for cell_id in cell_ids_to_delete:
           cell = self.inventory.attemptFetchingCellById(cell_id)
           if cell is not None:
             self.delete_cell(cell)
-          else:
-            print("CELL NO LONGER EXISTS WOMP WOMP")
-    #'''           
+
+         
 class TumourCellsMoveSteppable(SteppableBasePy):
     def __init__(self, frequency=1):
         SteppableBasePy.__init__(self, frequency)
@@ -812,7 +860,9 @@ class CellMigrationTrackerSteppable(SteppableBasePy):
         self.cd8t_file_path = None
         self.cd8t_file_path = None
         
-    # Used to determine cell migration parameters    
+    # Used to determine cell migration parameters
+    # Inactive
+        
     '''    
     def start(self):
         
@@ -886,12 +936,14 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
         SteppableBasePy.__init__(self, frequency)
         
         self.file_path = None
-        
+    
+    # Inactive
+    '''
+    
     def start(self):
-        '''
-        Set up CSV file for tracking CD8 T kill attempts.
-        '''
+        #Set up CSV file for tracking CD8 T kill attempts.
         
+
         output_dir = self.output_dir
         self.file_path = os.path.join(output_dir, "cd8t_kill_attempts.csv")
         
@@ -900,12 +952,10 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
             writer.writerow(["Cell_ID", "Kill_Attempts", "End_Time (MCS)", "Kill_Attempts_/_MCS"])
         
     def finish(self):
-        '''
-        Calculate average rate of kill attempts by CD8 T cells.
+        #Calculate average rate of kill attempts by CD8 T cells.
         
-        Returns:
-            CSV file with the total number of kill attempts, lifespan, and kill rate per MCS of each CD8 T cell.
-        '''
+        #Returns:
+            #CSV file with the total number of kill attempts, lifespan, and kill rate per MCS of each CD8 T cell.
         
         # Store CD8 T kill attempt counts in CSV file
         
@@ -919,5 +969,5 @@ class CD8TKillAttemptsTrackerSteppable(SteppableBasePy):
                     writer.writerow([cell_id, info[0], info[1], info[0]/info[1]])
         f.close()
         
-        
+	'''     
       
