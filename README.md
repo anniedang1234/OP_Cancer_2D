@@ -38,6 +38,13 @@ export PYTHONPATH=$PYTHONPATH:$HOME/CompuCell3D/lib/site-packages
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 python -X faulthandler -m cc3d.run_script -i output_directory/OP_Cancer_2D/OP_Cancer_2D.cc3d -f 10 -o output_directory>
+
+## Visualization
+To visualize the simulations, there are three scripts for different types of visualization:
+cells_timelapse.py produces a timelapse of the cells and medium.
+fields_timelapse.py produces three timelapses for each diffusible agent: IFN_gamma, TGF_beta, and Collagen.
+cells_timelapse.py produces three timelapses of the cells, with the medium replaced by each of the diffusible agents.
+
 ```
 ## Supplemental Information
 process_data.py was used to clean up the initial patient spatial transcriptomics data for the model. This script was used to produce patient_filtered_edited.csv, which contains the cell positions and gene expression.
