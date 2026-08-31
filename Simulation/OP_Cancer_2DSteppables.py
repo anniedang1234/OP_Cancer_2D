@@ -247,14 +247,14 @@ class OutputCSVSteppable(SteppableBasePy):
             if len(cd8t_cells) == 0:
                 self.shared_steppable_vars["cd8t_density_list"].append(0)
             else:
-                indices = cd8t_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=10)
+                indices = cd8t_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=12.5)
                 self.shared_steppable_vars["cd8t_density_list"].append(len(indices))
                 
             # Local CAF density
             if len(cafs) == 0:
                 self.shared_steppable_vars["caf_density_list"].append(0)
             else:
-                indices = caf_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=10)
+                indices = caf_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=12.5)
                 self.shared_steppable_vars["caf_density_list"].append(len(indices))
                 
         # Mean Nearest CD8 T Tumour Distance
@@ -470,14 +470,14 @@ class UpdateTumourCellsSteppable(SteppableBasePy):
             if len(cd8t_cells) == 0:
                 self.shared_steppable_vars["cd8t_density_list"].append(0)
             else:
-                indices = cd8t_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=10)
+                indices = cd8t_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=12.5)
                 self.shared_steppable_vars["cd8t_density_list"].append(len(indices))
                 
             # Local CAF density
             if len(cafs) == 0:
                 self.shared_steppable_vars["caf_density_list"].append(0)
             else:
-                indices = caf_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=10)
+                indices = caf_tree.query_ball_point((tumour.xCOM, tumour.yCOM, tumour.zCOM), r=12.5)
                 self.shared_steppable_vars["caf_density_list"].append(len(indices))
             
             # Baseline apoptosis
